@@ -114,7 +114,13 @@ function setupKeyboardShortcuts() {
           return;
         case 'n':
           e.preventDefault();
-          navigate('#parts');
+          // Jika sudah di parts, langsung buka form
+          if (window.location.hash === '#parts') {
+            document.querySelector('#btn-add-part')?.click();
+          } else {
+            window.location.hash = '#parts';
+            setTimeout(() => document.querySelector('#btn-add-part')?.click(), 400);
+          }
           return;
         case 'i':
           e.preventDefault();

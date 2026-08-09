@@ -248,7 +248,14 @@ function bindEvents(container) {
   // Add part button
   const btnAdd = container.querySelector('#btn-add-part');
   const btnAddEmpty = container.querySelector('#btn-add-part-empty');
-  const handleAddPart = () => window.location.hash = '#parts';
+  const handleAddPart = () => {
+    window.location.hash = '#parts';
+    // Beri waktu sebentar untuk view mount sebelum trigger form
+    setTimeout(() => {
+      const addBtn = document.querySelector('#btn-add-part');
+      if (addBtn) addBtn.click();
+    }, 400);
+  };
   if (btnAdd) btnAdd.addEventListener('click', handleAddPart);
   if (btnAddEmpty) btnAddEmpty.addEventListener('click', handleAddPart);
 

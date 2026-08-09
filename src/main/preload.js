@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── Import ─────────────────────────────────────────────────────────────────
   importCSV: (filePath) => ipcRenderer.invoke('import:csv', filePath),
+  importConfirm: (rows) => ipcRenderer.invoke('import:confirm', rows),
   downloadCSVTemplate: () => ipcRenderer.invoke('import:downloadTemplate'),
   openFileDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),
 

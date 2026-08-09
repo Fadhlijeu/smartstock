@@ -5,8 +5,10 @@
 
 const { ipcMain, dialog, shell, app } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const partsRepo = require('./db/parts.repository');
 const settingsRepo = require('./db/settings.repository');
+const csvService = require('./csv.service');
 
 /**
  * Register semua IPC handlers
@@ -161,12 +163,91 @@ function registerIpcHandlers(logger) {
     return { success: false, error: { code: 'NOT_IMPLEMENTED', message: 'PDF export akan diimplementasi di M5' } };
   });
 
-  ipcMain.handle('import:csv', async (_, filePath) => {
-    return { success: false, error: { code: 'NOT_IMPLEMENTED', message: 'CSV import akan diimplementasi di M1' } };
+  ipcMain.handle('import:csv', async (event, filePath) => {
+    try {
+      // Jika tidak ada filePath, tampilkan file dialog
+      if (!filePath) {
+        const win = require('electron').BrowserWindow.fromWebContents(event.sender);
+        const result = await dialog.showOpenDialog(win, {
+          title: 'Pilih File CSV',
+          properties: ['openFile'],
+          filters: [{ name: 'CSV Files', extensions: ['csv', 'txt'] }],
+        });
+        if (result.canceled || !result.filePaths.length) {
+          return { success: false, error: { code: 'CANCELED', message: 'Import dibatalkan' } };
+        }
+        filePath = result.filePaths[0];
+      }
+
+      // Parse & validate
+      const { rows, errors, totalRows } = csvService.parseCSV(filePath);
+
+      // Kirim preview ke renderer (jangan insert dulu)
+      return {
+        success: true,
+        data: {
+          filePath,
+          totalRows,
+          validRows: rows.length,
+          errorRows: errors.length,
+          errors,         // Array error per baris (max 50 untuk preview)
+          previewRows: rows.slice(0, 5), // Preview 5 baris pertama
+          rows,           // Semua valid rows — untuk di-insert oleh import:confirm
+        },
+      };
+    } catch (err) {
+      logger.error('IPC import:csv error', { error: err.message });
+      return { success: false, error: { code: 'PARSE_ERROR', message: err.message } };
+    }
   });
 
-  ipcMain.handle('import:downloadTemplate', async () => {
-    return { success: false, error: { code: 'NOT_IMPLEMENTED', message: 'CSV template akan diimplementasi di M1' } };
+  ipcMain.handle('import:confirm', async (event, rows) => {
+    try {
+      if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        return { success: false, error: { code: 'NO_DATA', message: 'Tidak ada data untuk diimport' } };
+      }
+
+      const win = require('electron').BrowserWindow.fromWebContents(event.sender);
+      let lastProgress = 0;
+
+      const result = csvService.batchInsert(rows, (current, total) => {
+        const pct = Math.round((current / total) * 100);
+        if (pct !== lastProgress) {
+          lastProgress = pct;
+          win.webContents.send('import-progress', { current, total, percent: pct });
+        }
+      });
+
+      logger.info('CSV import completed', result);
+      return { success: true, data: result };
+    } catch (err) {
+      logger.error('IPC import:confirm error', { error: err.message });
+      return { success: false, error: { code: 'IMPORT_ERROR', message: err.message } };
+    }
+  });
+
+  ipcMain.handle('import:downloadTemplate', async (event) => {
+    try {
+      const win = require('electron').BrowserWindow.fromWebContents(event.sender);
+      const result = await dialog.showSaveDialog(win, {
+        title: 'Simpan Template CSV',
+        defaultPath: 'template_import_barang.csv',
+        filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+      });
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, error: { code: 'CANCELED', message: 'Dibatalkan' } };
+      }
+
+      const content = csvService.generateTemplate();
+      fs.writeFileSync(result.filePath, content, 'utf-8');
+      shell.showItemInFolder(result.filePath);
+
+      return { success: true, data: { filePath: result.filePath } };
+    } catch (err) {
+      logger.error('IPC import:downloadTemplate error', { error: err.message });
+      return { success: false, error: { code: 'IO_ERROR', message: err.message } };
+    }
   });
 
   logger.info('All IPC handlers registered');
