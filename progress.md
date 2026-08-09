@@ -22,7 +22,7 @@
 ## Quick Status
 
 ```
-M0: Foundation    [ ] Not started
+M0: Foundation    [x] DONE — 2026-08-09
 M1: Core Data     [ ] Not started
 M2: QR Generation [ ] Not started
 M3: Scanner       [ ] Not started
@@ -36,7 +36,148 @@ M5: Polish/Export [ ] Not started
 
 ---
 
-### SESSION 001 — 2026-08-09
+### SESSION 002 — 2026-08-09
+
+**Agent**: Antigravity (Google DeepMind)
+**Duration**: ~1.5 jam
+**Task**: M0 Foundation — Electron setup, database, design system, UI shell
+
+#### User Request (Original)
+
+```
+BACA DAN KERJAKAN PROJECT INI
+(lalu: paham, kalau gitu lanjutkan)
+```
+
+#### Agent Thinking & Analysis
+
+**Problem**:
+- Node.js v24 + Visual Studio 2026 menyebabkan `better-sqlite3` gagal compile (C++17 override)
+- Solusi: `npm install --ignore-scripts` + `@electron/rebuild` untuk compile native module untuk Electron runtime
+- Electron binary tidak ter-download karena `--ignore-scripts` → solusi: jalankan `node install.js` manual
+- App berhasil berjalan setelah semua issue diselesaikan
+
+**Key Decisions**:
+- Font di-bundle lokal via `@fontsource` npm packages (bukan CDN — konsisten dengan offline requirement)
+- Material Symbols Outlined di-bundle via `@material-symbols/font-300`
+- `postinstall: electron-rebuild` ditambah ke scripts untuk future-proof
+
+#### Actions Taken
+
+1. ✅ Baca semua workflow docs (AGENT_NOTICE.md, progress.md, semua 10 workflow files)
+2. ✅ Buat Implementation Plan (artifacts)
+3. ✅ `git checkout -b feat/m0-foundation`
+4. ✅ `npm init` + update `package.json`
+5. ✅ `npm install --ignore-scripts` (workaround Node 24 + VS 2026)
+6. ✅ `npx @electron/rebuild` — native modules berhasil compile untuk Electron
+7. ✅ Buat `src/main/logger.js` — Winston logger
+8. ✅ Buat `src/main/db/migrations/001_initial.sql` — Full schema 7 tabel
+9. ✅ Buat `src/main/db/migrations/index.js` — Migration runner
+10. ✅ Buat `src/main/db/db.js` — SQLite singleton + WAL mode
+11. ✅ Buat `src/main/db/parts.repository.js` — CRUD + KPI stats
+12. ✅ Buat `src/main/db/settings.repository.js` — Key-value settings
+13. ✅ Buat `src/main/window.js` — BrowserWindow config
+14. ✅ Buat `src/main/preload.js` — contextBridge (secure IPC)
+15. ✅ Buat `src/main/ipc-handlers.js` — Semua IPC handlers
+16. ✅ Buat `src/main/menu.js` — App menu
+17. ✅ Buat `src/main/index.js` — Entry point Electron
+18. ✅ Buat `src/renderer/css/tokens.css` — Design tokens (OKLCH colors)
+19. ✅ Buat `src/renderer/css/layout.css` — App shell layout
+20. ✅ Buat `src/renderer/css/components.css` — Full component library
+21. ✅ Buat `src/renderer/css/grid.css` — Responsive parts grid
+22. ✅ Buat `src/renderer/css/animations.css` — Micro-animations + keyframes
+23. ✅ Buat `src/renderer/js/state.js` — Pub/sub state management
+24. ✅ Buat `src/renderer/js/router.js` — Hash-based SPA router
+25. ✅ Buat `src/renderer/js/components/toast.js` — Toast notifications
+26. ✅ Buat `src/renderer/js/components/modal.js` — Modal dialog system
+27. ✅ Buat `src/renderer/js/views/dashboard.js` — Grid monitor + KPI widgets
+28. ✅ Buat `src/renderer/js/views/parts.js` — Parts placeholder
+29. ✅ Buat `src/renderer/js/views/scanner.js` — Scanner UI
+30. ✅ Buat `src/renderer/js/views/history.js` — History table
+31. ✅ Buat `src/renderer/js/views/reports.js` — Export cards
+32. ✅ Buat `src/renderer/js/views/settings.js` — Settings dengan save ke DB
+33. ✅ Buat `src/renderer/js/app.js` — Main controller + keyboard shortcuts
+34. ✅ Buat `src/renderer/index.html` — App shell HTML
+35. ✅ Bundle fonts lokal: Inter (400/500/600/700), JetBrains Mono (400/500), Material Symbols Outlined
+36. ✅ Update `.gitignore` (data/, logs/, dist/, node_modules/)
+37. ✅ Update `README.md`
+38. ✅ `npm start` — App berhasil dibuka tanpa crash
+39. ✅ `git commit` — 41 files, 10002 insertions (commit: 65e5b32)
+40. ✅ `git push origin feat/m0-foundation` — Branch di-push ke GitHub
+
+#### Decisions & Rationale
+
+| Decision | Rationale |
+|----------|-----------|
+| `--ignore-scripts` + `@electron/rebuild` | Node 24 + VS 2026 tidak kompatibel dengan standard build |
+| `@fontsource` npm packages | Reliable, offline-safe, tidak perlu CDN |
+| `@material-symbols/font-300` | Official Google package, variable font 300 weight |
+| OKLCH color space | Modern, perceptually uniform, matches design system spec |
+| Hash-based router | Simple, tidak butuh server, kompatibel Electron file:// |
+
+#### Files Created This Session
+
+```
+D:\PROJECT\SAP - Buat tata\
+├── package.json                      ← Project config
+├── package-lock.json
+├── README.md                         ← Updated
+├── .gitignore                        ← Updated
+└── src/
+    ├── main/
+    │   ├── index.js                  ← Entry point Electron
+    │   ├── logger.js                 ← Winston logger
+    │   ├── window.js                 ← BrowserWindow config
+    │   ├── preload.js                ← IPC contextBridge
+    │   ├── ipc-handlers.js           ← IPC handler registry
+    │   ├── menu.js                   ← App menu
+    │   └── db/
+    │       ├── db.js                 ← SQLite singleton
+    │       ├── parts.repository.js   ← CRUD parts + KPI
+    │       ├── settings.repository.js← Settings CRUD
+    │       └── migrations/
+    │           ├── 001_initial.sql   ← Full schema
+    │           └── index.js          ← Migration runner
+    └── renderer/
+        ├── index.html                ← App shell
+        ├── css/
+        │   ├── tokens.css            ← Design tokens
+        │   ├── layout.css            ← App layout
+        │   ├── components.css        ← Component library
+        │   ├── grid.css              ← Parts grid
+        │   └── animations.css        ← Micro-animations
+        ├── js/
+        │   ├── app.js                ← Main controller
+        │   ├── state.js              ← Pub/sub state
+        │   ├── router.js             ← SPA router
+        │   ├── components/
+        │   │   ├── toast.js          ← Toast notifications
+        │   │   └── modal.js          ← Modal dialog
+        │   └── views/
+        │       ├── dashboard.js      ← Grid monitor
+        │       ├── parts.js          ← Parts management
+        │       ├── scanner.js        ← Scanner interface
+        │       ├── history.js        ← Transaction history
+        │       ├── reports.js        ← Export reports
+        │       └── settings.js       ← App settings
+        └── assets/
+            ├── fonts/                ← Bundled fonts (offline)
+            │   ├── Inter-*.woff2
+            │   ├── JetBrainsMono-*.woff2
+            │   └── MaterialSymbolsOutlined.woff2
+            └── sounds/               ← Placeholder beep (M3)
+```
+
+#### Open Questions / Next Steps
+
+- [ ] **M1: Core Data** — Form input barang, CSV import, CRUD UI
+- [ ] **PR ke main** — Buat pull request feat/m0-foundation → main di GitHub
+- [ ] **Beep sounds** — Ganti placeholder dengan file MP3 asli di M3
+- [ ] **electron-builder config** — Finalisasi untuk packaging di M5
+
+---
+
+
 
 **Agent**: Antigravity (Google DeepMind)
 **Duration**: ~1 jam
