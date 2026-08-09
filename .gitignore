@@ -1,0 +1,40 @@
+# Gitignore for SAP StockMon
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+data/stockmon.db
+data/backups/
+data/images/
+data/exports/
+logs/
+
+# Electron build output
+dist/
+out/
+release/
+build/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temp
+*.tmp
+*.temp
