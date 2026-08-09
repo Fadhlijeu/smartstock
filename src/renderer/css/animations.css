@@ -1,0 +1,175 @@
+/**
+ * animations.css — Micro-animations untuk SAP StockMon
+ * Semua keyframes dan animasi dekoratif.
+ */
+
+/* ─── KEYFRAMES ──────────────────────────────────────────────────── */
+
+/* Toast: slide up + fade in */
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toastSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Modal: scale + fade in */
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Fade in general */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Card: scale in dari kecil + fade (untuk new part) */
+@keyframes cardScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Scan success: flash hijau */
+@keyframes scanFlashSuccess {
+  0%   { background: var(--color-scan-success); border-color: var(--color-scan-success); }
+  60%  { background: var(--color-status-ok-dim); border-color: var(--color-status-ok); }
+  100% { background: var(--color-paper-1); border-color: var(--color-paper-border); }
+}
+
+/* Scan error: shake horizontal */
+@keyframes scanShake {
+  0%, 100% { transform: translateX(0); background: var(--color-paper-1); }
+  15%  { transform: translateX(-6px); background: var(--color-status-out-dim); }
+  30%  { transform: translateX(6px); }
+  45%  { transform: translateX(-4px); }
+  60%  { transform: translateX(4px); }
+  75%  { transform: translateX(-2px); }
+}
+
+/* Scan bar pulse animation */
+@keyframes scanPulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-accent-dim); }
+  50%       { box-shadow: 0 0 0 6px transparent; }
+}
+
+/* Loading spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* KPI counter (visually indicate change) */
+@keyframes counterPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); color: var(--color-accent); }
+  100% { transform: scale(1); }
+}
+
+/* Badge pulse (for review badge in sidebar) */
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.15); }
+}
+
+/* Slide in from right (for panels) */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+/* Skeleton loading shimmer */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─── ANIMATION UTILITY CLASSES ─────────────────────────────────── */
+
+.animate-card-in {
+  animation: cardScaleIn var(--duration-normal) var(--ease-spring) both;
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--duration-fast) var(--ease-enter) both;
+}
+
+.animate-scan-success {
+  animation: scanFlashSuccess 0.8s var(--ease-standard) forwards;
+}
+
+.animate-scan-error {
+  animation: scanShake 0.5s var(--ease-standard) forwards;
+}
+
+.animate-counter-pop {
+  animation: counterPop var(--duration-normal) var(--ease-spring);
+}
+
+/* ─── SKELETON LOADER ────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-paper-2) 25%,
+    var(--color-paper-3) 50%,
+    var(--color-paper-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+.skeleton--card {
+  height: 148px;
+  border-radius: var(--radius-lg);
+}
+
+.skeleton--text {
+  height: 13px;
+  width: 60%;
+}
+
+.skeleton--text-sm {
+  height: 11px;
+  width: 40%;
+}
+
+/* ─── TRANSITION UTILITIES ───────────────────────────────────────── */
+.transition-colors {
+  transition: color var(--duration-fast), background var(--duration-fast), border-color var(--duration-fast);
+}
+
+.transition-transform {
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.transition-all {
+  transition: all var(--duration-fast) var(--ease-standard);
+}

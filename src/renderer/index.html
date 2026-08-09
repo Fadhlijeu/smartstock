@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self'">
+  <title>SAP StockMon</title>
+
+  <!-- Design System CSS — load order penting -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/grid.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+
+  <!-- ─── APP SHELL ─────────────────────────────────────────── -->
+  <div id="app">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" role="navigation" aria-label="Navigasi utama">
+
+      <!-- Header / Logo -->
+      <div class="sidebar-header">
+        <div class="sidebar-logo" aria-hidden="true">
+          <span class="icon" style="color:white;font-size:18px">inventory_2</span>
+        </div>
+        <span class="sidebar-brand">StockMon</span>
+        <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+          <span class="icon">chevron_left</span>
+        </button>
+      </div>
+
+      <!-- Nav -->
+      <nav class="sidebar-nav">
+
+        <!-- Main pages -->
+        <a class="nav-item active"
+           data-route="#dashboard"
+           href="#dashboard"
+           role="button"
+           tabindex="0"
+           aria-label="Dashboard">
+          <span class="icon">grid_view</span>
+          <span class="nav-item-label">Dashboard</span>
+          <span class="nav-item-badge" id="sidebar-alert-badge" style="display:none">0</span>
+        </a>
+
+        <a class="nav-item"
+           data-route="#scanner"
+           href="#scanner"
+           role="button"
+           tabindex="0"
+           aria-label="Scanner">
+          <span class="icon">barcode_scanner</span>
+          <span class="nav-item-label">Scanner</span>
+        </a>
+
+        <a class="nav-item"
+           data-route="#parts"
+           href="#parts"
+           role="button"
+           tabindex="0"
+           aria-label="Manajemen Barang">
+          <span class="icon">inventory_2</span>
+          <span class="nav-item-label">Barang</span>
+        </a>
+
+        <a class="nav-item"
+           data-route="#history"
+           href="#history"
+           role="button"
+           tabindex="0"
+           aria-label="Riwayat Transaksi">
+          <span class="icon">receipt_long</span>
+          <span class="nav-item-label">Riwayat</span>
+        </a>
+
+        <a class="nav-item"
+           data-route="#reports"
+           href="#reports"
+           role="button"
+           tabindex="0"
+           aria-label="Laporan dan Export">
+          <span class="icon">download</span>
+          <span class="nav-item-label">Laporan</span>
+        </a>
+
+      </nav>
+
+      <!-- Footer -->
+      <div class="sidebar-footer">
+        <a class="nav-item"
+           data-route="#settings"
+           href="#settings"
+           role="button"
+           tabindex="0"
+           aria-label="Pengaturan">
+          <span class="icon">settings</span>
+          <span class="nav-item-label">Pengaturan</span>
+        </a>
+      </div>
+
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main id="main">
+
+      <!-- Topbar -->
+      <header id="topbar">
+        <span class="topbar-title">Dashboard</span>
+        <div class="topbar-actions">
+          <button class="btn btn--ghost btn--icon" id="btn-keyboard-shortcuts" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)">
+            <span class="icon">keyboard</span>
+          </button>
+          <button class="btn btn--primary btn--sm" id="btn-quick-add" aria-label="Tambah barang baru (Ctrl+N)">
+            <span class="icon icon--sm">add</span>
+            <span>Tambah</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Page Content — diisi oleh router -->
+      <div id="page-content" role="main" aria-live="polite">
+        <!-- Loading state awal -->
+        <div style="display:flex;align-items:center;justify-content:center;height:300px">
+          <div class="spinner spinner--lg"></div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" role="log" aria-live="polite" aria-label="Notifikasi"></div>
+
+  <!-- Modal Backdrop -->
+  <div id="modal-backdrop" role="dialog" aria-modal="true"></div>
+
+  <!-- ─── APP SCRIPTS ────────────────────────────────────────── -->
+  <script type="module" src="js/app.js"></script>
+
+  <!-- Topbar quick actions (non-module) -->
+  <script>
+    // Keyboard shortcuts button
+    document.getElementById('btn-keyboard-shortcuts')?.addEventListener('click', () => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }));
+    });
+
+    // Quick add
+    document.getElementById('btn-quick-add')?.addEventListener('click', () => {
+      window.location.hash = '#parts';
+    });
+  </script>
+
+</body>
+</html>

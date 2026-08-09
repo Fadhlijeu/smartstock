@@ -1,0 +1,199 @@
+/**
+ * tokens.css — Design Tokens untuk SAP StockMon
+ * Semua custom properties yang mendefinisikan visual identity.
+ * JANGAN hardcode hex/rgb/oklch di luar file ini.
+ *
+ * Sumber: workflows/06_ui_design_system.md
+ */
+
+/* ─── FONT IMPORTS ──────────────────────────────────────────── */
+/* Catatan: karena app offline, font di-bundle ke /assets/fonts/ */
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Material Symbols Outlined — bundle lokal */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  src: url('../assets/fonts/MaterialSymbolsOutlined.woff2') format('woff2');
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: block;
+}
+
+/* ─── ROOT TOKENS ──────────────────────────────────────────────── */
+:root {
+  /* ── PAPER (Dark Mode Default) ── */
+  --color-paper-base:    oklch(9% 0.012 255);
+  --color-paper-1:       oklch(13% 0.014 255);
+  --color-paper-2:       oklch(17% 0.014 255);
+  --color-paper-3:       oklch(22% 0.014 255);
+  --color-paper-border:  oklch(26% 0.014 255);
+  --color-paper-divider: oklch(20% 0.010 255);
+
+  /* ── INK ── */
+  --color-ink-primary:   oklch(95% 0.005 255);
+  --color-ink-secondary: oklch(65% 0.008 255);
+  --color-ink-muted:     oklch(42% 0.006 255);
+  --color-ink-inverse:   oklch(10% 0.010 255);
+
+  /* ── ACCENT (Corporate Blue) ── */
+  --color-accent:        oklch(68% 0.20 258);
+  --color-accent-dim:    oklch(68% 0.20 258 / 0.15);
+  --color-accent-hover:  oklch(72% 0.22 258);
+  --color-accent-glow:   oklch(68% 0.20 258 / 0.08);
+
+  /* ── STATUS COLORS ── */
+  --color-status-ok:      oklch(68% 0.18 145);
+  --color-status-ok-dim:  oklch(68% 0.18 145 / 0.15);
+  --color-status-low:     oklch(78% 0.18 72);
+  --color-status-low-dim: oklch(78% 0.18 72 / 0.15);
+  --color-status-out:     oklch(62% 0.22 25);
+  --color-status-out-dim: oklch(62% 0.22 25 / 0.15);
+  --color-status-review:  oklch(72% 0.18 52);
+  --color-status-review-dim: oklch(72% 0.18 52 / 0.15);
+
+  /* ── SEMANTIC ── */
+  --color-success: oklch(68% 0.18 145);
+  --color-error:   oklch(62% 0.22 25);
+  --color-warning: oklch(78% 0.18 72);
+  --color-info:    oklch(68% 0.20 258);
+
+  /* ── OVERLAY ── */
+  --color-scrim:        oklch(0% 0 0 / 0.80);
+  --color-glass:        oklch(13% 0.012 255 / 0.85);
+  --color-glass-border: oklch(100% 0 0 / 0.06);
+
+  /* ── FOCUS ── */
+  --color-focus:      oklch(68% 0.20 258);
+  --color-focus-ring: oklch(68% 0.20 258 / 0.4);
+
+  /* ── SCAN FEEDBACK ── */
+  --color-scan-success: oklch(68% 0.18 145);
+  --color-scan-error:   oklch(62% 0.22 25);
+  --color-scan-warning: oklch(78% 0.18 72);
+
+  /* ── TYPOGRAPHY ── */
+  --font-display: "Inter", "Helvetica Neue", system-ui, sans-serif;
+  --font-body:    "Inter", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", "Fira Code", "Consolas", monospace;
+
+  /* ── TYPE SCALE ── */
+  --text-2xs:  10px;
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13px;
+  --text-md:   14px;
+  --text-lg:   16px;
+  --text-xl:   20px;
+  --text-2xl:  28px;
+  --text-3xl:  40px;
+
+  /* ── SPACING (4pt grid) ── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── BORDER RADIUS ── */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  10px;
+  --radius-xl:  14px;   /* Maksimum sesuai spec — JANGAN lebih dari ini */
+  --radius-full: 9999px;
+
+  /* ── MOTION ── */
+  --duration-instant: 80ms;
+  --duration-fast:    150ms;
+  --duration-normal:  220ms;
+  --duration-slow:    350ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter:    cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit:     cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── SHADOWS ── */
+  --shadow-sm:  0 1px 3px oklch(0% 0 0 / 0.3);
+  --shadow-md:  0 4px 16px oklch(0% 0 0 / 0.4);
+  --shadow-lg:  0 8px 32px oklch(0% 0 0 / 0.5);
+  --shadow-xl:  0 24px 80px oklch(0% 0 0 / 0.6);
+
+  /* ── SIDEBAR ── */
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 56px;
+  --topbar-height: 56px;
+}
+
+/* ─── LIGHT MODE OVERRIDE ─────────────────────────────────────── */
+:root[data-theme="light"] {
+  --color-paper-base:    oklch(98% 0.004 255);
+  --color-paper-1:       oklch(95% 0.006 255);
+  --color-paper-2:       oklch(91% 0.006 255);
+  --color-paper-3:       oklch(87% 0.006 255);
+  --color-paper-border:  oklch(82% 0.008 255);
+  --color-paper-divider: oklch(88% 0.006 255);
+
+  --color-ink-primary:   oklch(12% 0.012 255);
+  --color-ink-secondary: oklch(38% 0.010 255);
+  --color-ink-muted:     oklch(60% 0.008 255);
+  --color-ink-inverse:   oklch(95% 0.005 255);
+
+  --color-scrim:        oklch(0% 0 0 / 0.60);
+  --color-glass:        oklch(96% 0.006 255 / 0.90);
+  --color-glass-border: oklch(0% 0 0 / 0.08);
+}
+
+/* ─── REDUCED MOTION ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0ms;
+    --duration-fast:    0ms;
+    --duration-normal:  0ms;
+    --duration-slow:    0ms;
+  }
+}

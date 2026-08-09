@@ -1,0 +1,90 @@
+/**
+ * grid.css — Parts Grid Layout untuk SAP StockMon
+ */
+
+/* ─── PARTS GRID ─────────────────────────────────────────────────── */
+.parts-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+
+/* Responsive grid */
+@media (min-width: 1600px) {
+  .parts-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+@media (max-width: 1200px) {
+  .parts-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .parts-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Grid size variants (dari settings) */
+.parts-grid[data-size="small"] {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.parts-grid[data-size="large"] {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* List view */
+.parts-grid--list {
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.parts-grid--list .part-card {
+  flex-direction: row;
+  align-items: center;
+  min-height: auto;
+  padding: var(--space-3) var(--space-4);
+}
+
+.parts-grid--list .part-card__header {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 0;
+}
+
+.parts-grid--list .part-card__body {
+  flex: 1;
+}
+
+.parts-grid--list .part-card__name {
+  -webkit-line-clamp: 1;
+}
+
+.parts-grid--list .part-card__footer {
+  border-top: none;
+  padding-top: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 0;
+}
+
+/* Compact view */
+.parts-grid--compact {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.parts-grid--compact .part-card {
+  min-height: 100px;
+  padding: var(--space-3);
+  gap: var(--space-2);
+}
+
+.parts-grid--compact .part-card__icon {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+}
+
+.parts-grid--compact .part-card__qty {
+  font-size: var(--text-xl);
+}

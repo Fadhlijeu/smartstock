@@ -1,0 +1,58 @@
+{
+  "name": "sap-stockmon",
+  "version": "0.1.0",
+  "description": "Software monitoring stock barang berbasis barcode/QR — lokal, cepat, akurat.",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "rebuild": "electron-rebuild",
+    "postinstall": "electron-rebuild",
+    "build": "electron-builder build --win",
+    "build:dir": "electron-builder build --dir"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fadhlijeu/SAP-StockMon.git"
+  },
+  "author": "Fadhlijeu",
+  "license": "ISC",
+  "keywords": [
+    "electron",
+    "stock",
+    "barcode",
+    "qr",
+    "inventory"
+  ],
+  "bugs": {
+    "url": "https://github.com/Fadhlijeu/SAP-StockMon/issues"
+  },
+  "homepage": "https://github.com/Fadhlijeu/SAP-StockMon#readme",
+  "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@material-symbols/font-300": "^0.45.10",
+    "better-sqlite3": "^9.4.3",
+    "uuid": "^9.0.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "electron": "^29.4.6",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.sap-stockmon.app",
+    "productName": "SAP StockMon",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "files": [
+      "src/**/*",
+      "!src/renderer/assets/fonts/**"
+    ]
+  }
+}
