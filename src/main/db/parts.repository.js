@@ -84,7 +84,9 @@ function createPart(data) {
 
     stmt.run({
       id,
-      qrId: data.qrId || `QR-${new Date().getFullYear()}-TEMP`,
+      // QR ID akan di-replace di M2 dengan sequence resmi. Untuk M1:
+      // gunakan UUID pendek agar tidak conflict UNIQUE constraint
+      qrId: data.qrId || `QR-${new Date().getFullYear()}-${id.slice(0, 8).toUpperCase()}`,
       dateEntry: data.dateEntry || timestamp.slice(0, 10),
       mrInvoice: data.mrInvoice,
       purchaseOrder: data.purchaseOrder,

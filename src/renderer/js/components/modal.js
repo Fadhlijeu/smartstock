@@ -118,6 +118,8 @@ export function closeModal() {
  */
 export function confirmDialog(title, message, options = {}) {
   return new Promise((resolve) => {
+    let resolved = false; // Guard: pastikan hanya resolve sekali
+
     openModal({
       title,
       body: `<p style="color:var(--color-ink-secondary);font-size:var(--text-md);line-height:1.6">${escapeHtml(message)}</p>`,
@@ -127,16 +129,26 @@ export function confirmDialog(title, message, options = {}) {
           label: options.cancelLabel || 'Batal',
           type: 'ghost',
           id: 'modal-cancel',
-          onClick: () => { closeModal(); resolve(false); },
+          onClick: () => {
+            resolved = true;
+            resolve(false);
+            closeModal();
+          },
         },
         {
           label: options.confirmLabel || 'Konfirmasi',
           type: options.danger ? 'danger' : 'primary',
           id: 'modal-confirm',
-          onClick: () => { closeModal(); resolve(true); },
+          onClick: () => {
+            resolved = true;
+            resolve(true);   // ← resolve DULU, baru closeModal
+            closeModal();
+          },
         },
       ],
-      onClose: () => resolve(false),
+      onClose: () => {
+        if (!resolved) resolve(false); // Hanya resolve jika belum dari tombol
+      },
     });
   });
 }
