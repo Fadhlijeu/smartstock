@@ -46,6 +46,11 @@ contextBridge.exposeInMainWorld('api', {
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
   openDataDir: () => ipcRenderer.invoke('app:openDataDir'),
 
+  // ── QR Code ────────────────────────────────────────────────────────────────
+  qrGenerateForPart: (partId) => ipcRenderer.invoke('qr:generateForPart', partId),
+  qrGetDataUrl: (payload, size) => ipcRenderer.invoke('qr:getDataUrl', payload, size),
+  qrPeekNext: () => ipcRenderer.invoke('qr:peekNext'),
+
   // ── Real-time Events (Main → Renderer) ─────────────────────────────────────
   onStockUpdated: (callback) => {
     const handler = (_, data) => callback(data);

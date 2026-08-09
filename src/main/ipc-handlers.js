@@ -9,6 +9,8 @@ const fs = require('fs');
 const partsRepo = require('./db/parts.repository');
 const settingsRepo = require('./db/settings.repository');
 const csvService = require('./csv.service');
+const qrGenerator = require('./qr.generator');
+const sequenceManager = require('./db/sequence.manager');
 
 /**
  * Register semua IPC handlers
@@ -247,6 +249,48 @@ function registerIpcHandlers(logger) {
     } catch (err) {
       logger.error('IPC import:downloadTemplate error', { error: err.message });
       return { success: false, error: { code: 'IO_ERROR', message: err.message } };
+    }
+  });
+
+  // ── QR Code ────────────────────────────────────────────────────────────────
+
+  ipcMain.handle('qr:generateForPart', async (_, partId) => {
+    try {
+      const partRes = partsRepo.getPartById(partId);
+      if (!partRes.success) return partRes;
+      const part = partRes.data;
+
+      const { dataUrl, svg, payload, hash } = await qrGenerator.generateForPart(part);
+
+      // Simpan hash ke DB (untuk deteksi stale)
+      partsRepo.updatePart(partId, {
+        qrGeneratedAt: new Date().toISOString(),
+        qrPayloadHash: hash,
+      });
+
+      return { success: true, data: { dataUrl, svg, payload, hash, qrId: part.qrId } };
+    } catch (err) {
+      logger.error('IPC qr:generateForPart error', { error: err.message });
+      return { success: false, error: { code: 'QR_ERROR', message: err.message } };
+    }
+  });
+
+  ipcMain.handle('qr:getDataUrl', async (_, payload, size) => {
+    try {
+      const dataUrl = await qrGenerator.generateDataUrl(payload, { size: size || 256 });
+      return { success: true, data: { dataUrl } };
+    } catch (err) {
+      logger.error('IPC qr:getDataUrl error', { error: err.message });
+      return { success: false, error: { code: 'QR_ERROR', message: err.message } };
+    }
+  });
+
+  ipcMain.handle('qr:peekNext', async () => {
+    try {
+      const nextId = sequenceManager.peekNextQrId();
+      return { success: true, data: { nextId } };
+    } catch (err) {
+      return { success: false, error: { code: 'SEQ_ERROR', message: err.message } };
     }
   });
 

@@ -6,6 +6,7 @@
 
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('./db');
+const { nextQrId } = require('./sequence.manager');
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
@@ -84,9 +85,9 @@ function createPart(data) {
 
     stmt.run({
       id,
-      // QR ID akan di-replace di M2 dengan sequence resmi. Untuk M1:
-      // gunakan UUID pendek agar tidak conflict UNIQUE constraint
-      qrId: data.qrId || `QR-${new Date().getFullYear()}-${id.slice(0, 8).toUpperCase()}`,
+      // Gunakan sequence manager untuk QR ID resmi (QR-YYYY-NNNN)
+      // data.qrId hanya digunakan jika caller menyediakan override eksplisit
+      qrId: data.qrId || nextQrId(),
       dateEntry: data.dateEntry || timestamp.slice(0, 10),
       mrInvoice: data.mrInvoice,
       purchaseOrder: data.purchaseOrder,

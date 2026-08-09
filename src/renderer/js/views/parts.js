@@ -7,6 +7,7 @@ import { toast } from '../components/toast.js';
 import { openModal, closeModal, confirmDialog } from '../components/modal.js';
 import { renderPartForm, submitPartForm } from '../components/part-form.js';
 import { openImportCSVFlow } from '../components/import-csv.js';
+import { openQRModal } from '../components/qr-modal.js';
 
 let allParts = [];
 let filteredParts = [];
@@ -197,6 +198,9 @@ function renderRow(part) {
       <td style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-ink-muted)">${escHtml(part.mrInvoice)}</td>
       <td>
         <div style="display:flex;gap:var(--space-1);justify-content:flex-end">
+          <button class="btn btn--ghost btn--icon btn--sm btn-qr-part" data-part-id="${part.id}" title="Lihat QR">
+            <span class="icon icon--sm">qr_code</span>
+          </button>
           <button class="btn btn--ghost btn--icon btn--sm btn-edit-part" data-part-id="${part.id}" title="Edit">
             <span class="icon icon--sm">edit</span>
           </button>
@@ -271,6 +275,14 @@ function bindEvents(container) {
       }
       sortFiltered();
       renderTable(container);
+      return;
+    }
+
+    // QR
+    const qrBtn = e.target.closest('.btn-qr-part');
+    if (qrBtn) {
+      const p = allParts.find((x) => x.id === qrBtn.dataset.partId);
+      if (p) openQRModal(p);
       return;
     }
 
