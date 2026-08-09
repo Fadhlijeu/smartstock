@@ -24,7 +24,7 @@
 ```
 M0: Foundation    [x] DONE — 2026-08-09
 M1: Core Data     [x] DONE — 2026-08-09
-M2: QR Generation [ ] Not started
+M2: QR Generation [x] DONE — 2026-08-10
 M3: Scanner       [ ] Not started
 M4: Grid Monitor  [ ] Not started
 M5: Polish/Export [ ] Not started
