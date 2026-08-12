@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('api', {
   // ── Parts CRUD ─────────────────────────────────────────────────────────────
   getParts: (filters) => ipcRenderer.invoke('parts:getAll', filters),
   getPartById: (id) => ipcRenderer.invoke('parts:getById', id),
+  getPartByQrId: (qrId) => ipcRenderer.invoke('parts:getByQrId', qrId),
+  getPartBySerialNumber: (serialNumber) => ipcRenderer.invoke('parts:getBySerialNumber', serialNumber),
   createPart: (data) => ipcRenderer.invoke('parts:create', data),
   updatePart: (id, data) => ipcRenderer.invoke('parts:update', id, data),
   deletePart: (id) => ipcRenderer.invoke('parts:delete', id),

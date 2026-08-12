@@ -18,8 +18,15 @@ const crypto = require('crypto');
  */
 function buildPayload(part) {
   return JSON.stringify({
+    v: 1,
+    id: part.qrId || part.qr_id,
     qrId: part.qrId || part.qr_id,
     sn: part.serialNumber || part.serial_number,
+    mr: part.mrInvoice || part.mr_invoice,
+    po: part.purchaseOrder || part.purchase_order,
+    qty: part.currentQty || part.current_qty || 0,
+    cat: part.category || 'Uncategorized',
+    ts: Math.floor(Date.now() / 1000),
     desc: (part.description || '').slice(0, 40), // Max 40 char biar QR tidak terlalu dense
   });
 }

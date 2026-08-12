@@ -6,7 +6,7 @@
 
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('./db');
-const { nextQrId } = require('./sequence.manager');
+const { nextQrId, nextSerialNumber } = require('./sequence.manager');
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
@@ -56,6 +56,20 @@ function now() {
   return new Date().toISOString();
 }
 
+function normalizeCreateData(data) {
+  const normalized = { ...data };
+  const serialNumber = String(normalized.serialNumber || '').trim();
+
+  if (!serialNumber) {
+    normalized.serialNumber = nextSerialNumber(normalized);
+    normalized.snSource = 'auto';
+  } else {
+    normalized.serialNumber = serialNumber;
+  }
+
+  return normalized;
+}
+
 // ─── QUERIES ─────────────────────────────────────────────────────────────────
 
 /**
@@ -68,6 +82,7 @@ function createPart(data) {
     const db = getDb();
     const id = uuidv4();
     const timestamp = now();
+    const partData = normalizeCreateData(data);
 
     const stmt = db.prepare(`
       INSERT INTO parts (
@@ -87,21 +102,21 @@ function createPart(data) {
       id,
       // Gunakan sequence manager untuk QR ID resmi (QR-YYYY-NNNN)
       // data.qrId hanya digunakan jika caller menyediakan override eksplisit
-      qrId: data.qrId || nextQrId(),
-      dateEntry: data.dateEntry || timestamp.slice(0, 10),
-      mrInvoice: data.mrInvoice,
-      purchaseOrder: data.purchaseOrder,
-      serialNumber: data.serialNumber,
-      initialQty: data.initialQty,
-      currentQty: data.initialQty, // Dimulai sama dengan initialQty
-      unit: data.unit || 'pcs',
-      description: data.description,
-      category: data.category || 'Uncategorized',
-      categoryConfidence: data.categoryConfidence || 0,
-      categoryAuto: data.categoryAuto !== false ? 1 : 0,
-      needsReview: data.needsReview ? 1 : 0,
-      snSource: data.snSource || 'auto',
-      minQty: data.minQty || 0,
+      qrId: partData.qrId || nextQrId(),
+      dateEntry: partData.dateEntry || timestamp.slice(0, 10),
+      mrInvoice: partData.mrInvoice,
+      purchaseOrder: partData.purchaseOrder,
+      serialNumber: partData.serialNumber,
+      initialQty: partData.initialQty,
+      currentQty: partData.initialQty, // Dimulai sama dengan initialQty
+      unit: partData.unit || 'pcs',
+      description: partData.description,
+      category: partData.category || 'Uncategorized',
+      categoryConfidence: partData.categoryConfidence || 0,
+      categoryAuto: partData.categoryAuto !== false ? 1 : 0,
+      needsReview: partData.needsReview ? 1 : 0,
+      snSource: partData.snSource || 'auto',
+      minQty: partData.minQty || 0,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -144,6 +159,24 @@ function getPartByQrId(qrId) {
     const row = db.prepare('SELECT * FROM parts WHERE qr_id = ? AND is_deleted = 0').get(qrId);
     if (!row) {
       return { success: false, error: { code: 'NOT_FOUND', message: `QR ID tidak ditemukan: ${qrId}` } };
+    }
+    return { success: true, data: rowToPart(row) };
+  } catch (err) {
+    return { success: false, error: { code: 'DB_ERROR', message: err.message } };
+  }
+}
+
+/**
+ * Ambil part berdasarkan serial number
+ */
+function getPartBySerialNumber(serialNumber) {
+  try {
+    const db = getDb();
+    const row = db.prepare(
+      'SELECT * FROM parts WHERE serial_number = ? AND is_deleted = 0'
+    ).get(serialNumber);
+    if (!row) {
+      return { success: false, error: { code: 'NOT_FOUND', message: `Serial number tidak ditemukan: ${serialNumber}` } };
     }
     return { success: true, data: rowToPart(row) };
   } catch (err) {
@@ -333,6 +366,7 @@ module.exports = {
   createPart,
   getPartById,
   getPartByQrId,
+  getPartBySerialNumber,
   getParts,
   updatePart,
   deletePart,

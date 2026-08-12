@@ -8,7 +8,9 @@ const path = require('path');
 const fs = require('fs');
 const partsRepo = require('./db/parts.repository');
 const settingsRepo = require('./db/settings.repository');
+const transactionsRepo = require('./db/transactions.repository');
 const csvService = require('./csv.service');
+const exportService = require('./export.service');
 const qrGenerator = require('./qr.generator');
 const sequenceManager = require('./db/sequence.manager');
 
@@ -34,6 +36,24 @@ function registerIpcHandlers(logger) {
       return partsRepo.getPartById(id);
     } catch (err) {
       logger.error('IPC parts:getById error', { id, error: err.message });
+      return { success: false, error: { code: 'IPC_ERROR', message: err.message } };
+    }
+  });
+
+  ipcMain.handle('parts:getByQrId', async (_, qrId) => {
+    try {
+      return partsRepo.getPartByQrId(qrId);
+    } catch (err) {
+      logger.error('IPC parts:getByQrId error', { qrId, error: err.message });
+      return { success: false, error: { code: 'IPC_ERROR', message: err.message } };
+    }
+  });
+
+  ipcMain.handle('parts:getBySerialNumber', async (_, serialNumber) => {
+    try {
+      return partsRepo.getPartBySerialNumber(serialNumber);
+    } catch (err) {
+      logger.error('IPC parts:getBySerialNumber error', { serialNumber, error: err.message });
       return { success: false, error: { code: 'IPC_ERROR', message: err.message } };
     }
   });
@@ -146,19 +166,75 @@ function registerIpcHandlers(logger) {
   });
 
   ipcMain.handle('transactions:getAll', async (_, filters) => {
-    return { success: true, data: [] }; // M3
+    try {
+      return transactionsRepo.getTransactions(filters);
+    } catch (err) {
+      logger.error('IPC transactions:getAll error', { error: err.message });
+      return { success: false, error: { code: 'IPC_ERROR', message: err.message } };
+    }
   });
 
-  ipcMain.handle('transactions:create', async (_, data) => {
-    return { success: false, error: { code: 'NOT_IMPLEMENTED', message: 'Transactions akan diimplementasi di M3' } };
+  ipcMain.handle('transactions:create', async (event, data) => {
+    try {
+      const result = transactionsRepo.createTransaction(data);
+      if (result.success) {
+        event.sender.send('stock-updated', result.data);
+      }
+      return result;
+    } catch (err) {
+      logger.error('IPC transactions:create error', { error: err.message });
+      return { success: false, error: { code: 'IPC_ERROR', message: err.message } };
+    }
   });
 
   ipcMain.handle('transactions:undoLast', async () => {
-    return { success: false, error: { code: 'NOT_IMPLEMENTED', message: 'Undo akan diimplementasi di M3' } };
+    try {
+      return transactionsRepo.undoLastTransaction();
+    } catch (err) {
+      logger.error('IPC transactions:undoLast error', { error: err.message });
+      return { success: false, error: { code: 'IPC_ERROR', message: err.message } };
+    }
   });
 
-  ipcMain.handle('export:excel', async (_, type, filters) => {
-    return { success: false, error: { code: 'NOT_IMPLEMENTED', message: 'Excel export akan diimplementasi di M5' } };
+  ipcMain.handle('export:excel', async (event, type, filters) => {
+    try {
+      const win = require('electron').BrowserWindow.fromWebContents(event.sender);
+      const reportNames = {
+        stock: 'StockSnapshot',
+        transactions: 'TransactionLog',
+        lowStock: 'LowStockAlert',
+      };
+      const reportName = reportNames[type] || 'StockReport';
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const result = await dialog.showSaveDialog(win, {
+        title: 'Simpan Laporan Excel',
+        defaultPath: `${reportName}_${stamp}.xlsx`,
+        filters: [{ name: 'Excel Workbook', extensions: ['xlsx'] }],
+      });
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, error: { code: 'CANCELED', message: 'Export dibatalkan' } };
+      }
+
+      if (type === 'transactions') {
+        const exported = await exportService.exportTransactionLog(result.filePath, filters);
+        if (exported.success) shell.showItemInFolder(result.filePath);
+        return exported;
+      }
+
+      if (type === 'lowStock') {
+        const exported = await exportService.exportLowStock(result.filePath);
+        if (exported.success) shell.showItemInFolder(result.filePath);
+        return exported;
+      }
+
+      const exported = await exportService.exportStockSnapshot(result.filePath, filters);
+      if (exported.success) shell.showItemInFolder(result.filePath);
+      return exported;
+    } catch (err) {
+      logger.error('IPC export:excel error', { error: err.message });
+      return { success: false, error: { code: 'EXPORT_ERROR', message: err.message } };
+    }
   });
 
   ipcMain.handle('export:pdf', async (_, type, filters) => {

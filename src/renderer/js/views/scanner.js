@@ -265,7 +265,7 @@ async function processCode(code, container) {
     if (code.startsWith('{')) {
       try {
         const payload = JSON.parse(code);
-        qrId = payload.qrId;
+        qrId = payload.qrId || payload.id;
         serialNumber = payload.sn;
       } catch (_) { /* bukan JSON valid */ }
     }

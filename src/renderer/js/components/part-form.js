@@ -94,11 +94,11 @@ export function renderPartForm(part = null) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
 
         <div class="form-group">
-          <label class="form-label required" for="pf-serial">Serial Number</label>
+          <label class="form-label" for="pf-serial">Serial Number</label>
           <input type="text" class="form-input form-input--mono" id="pf-serial" name="serialNumber"
             value="${val('serialNumber')}" placeholder="BOLT-M10-001"
-            ${isEdit ? 'readonly title="Serial number tidak bisa diubah setelah dibuat"' : ''} required>
-          <span class="form-hint">${isEdit ? 'Tidak dapat diubah setelah dibuat' : 'Unik — tidak boleh duplikat'}</span>
+            ${isEdit ? 'readonly title="Serial number tidak bisa diubah setelah dibuat"' : ''}>
+          <span class="form-hint">${isEdit ? 'Tidak dapat diubah setelah dibuat' : 'Kosongkan untuk auto-generate'}</span>
           <span class="form-error" id="err-serialNumber" hidden></span>
         </div>
 
@@ -197,7 +197,6 @@ export function validatePartForm(form, isEdit = false) {
   if (!g('mrInvoice')) show('mrInvoice', 'MR Invoice wajib diisi');
   if (!g('purchaseOrder')) show('purchaseOrder', 'Purchase Order wajib diisi');
   if (!g('description')) show('description', 'Deskripsi barang wajib diisi');
-  if (!isEdit && !g('serialNumber')) show('serialNumber', 'Serial Number wajib diisi');
 
   // Date format
   const dateVal = g('dateEntry');
