@@ -347,3 +347,27 @@ Renderer Process (HTML/CSS/JS)
 ---
 
 *Last updated: 2026-08-09 by Antigravity (Session 001)*
+
+---
+
+### SESSION 006 — 2026-08-12
+
+**Agent**: Codex
+**Task**: Redesign UI/UX app shell dan dashboard dengan pola visual shadcn/ui, tanpa mengubah stack Vanilla JS + CSS.
+
+#### Actions Taken
+- ✅ Membaca `AGENT_NOTICE.md`, `progress.md`, struktur renderer, dan seluruh dokumen workflow untuk memahami batasan fungsi, desain, dan arsitektur.
+- ✅ Menelaah panduan shadcn UI yang tersedia di konfigurasi Gemini, lalu menerjemahkan pola Sidebar, Card, Badge, Input, dan Button ke komponen renderer vanilla yang sudah ada.
+- ✅ Menambahkan hierarki navigasi sidebar, indikator kesiapan database lokal, header dashboard berorientasi status, dan penyempurnaan KPI, scan bar, filter, form, tabel, serta kartu barang.
+- ✅ Menjalankan pemeriksaan sintaks JavaScript dan `git diff --check` tanpa error.
+- ⚠️ Menjalankan `npm run build:dir`; pemeriksaan sintaks dan diff lulus, tetapi artefak paket belum tersedia setelah proses unduhan Electron sehingga packaging perlu dijalankan ulang pada sesi berikutnya.
+
+#### Files Modified
+- `src/renderer/index.html` — memuat layer style baru serta memperjelas struktur navigasi shell.
+- `src/renderer/css/shadcn-overrides.css` — layer visual shadcn-inspired untuk komponen dan layout yang ada.
+- `src/renderer/js/views/dashboard.js` — header dashboard baru dan peningkatan aksesibilitas ikon KPI.
+- `progress.md` — catatan sesi ini.
+
+#### Notes / Next Steps
+- [ ] Lanjutkan penerapan struktur visual yang sama pada layar Scanner, Barang, Riwayat, Laporan, dan Pengaturan.
+- [ ] Uji visual interaktif pada resolusi desktop target bersama operator gudang.

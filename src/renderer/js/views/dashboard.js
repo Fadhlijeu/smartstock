@@ -52,6 +52,18 @@ function unmount() {
 
 function renderDashboard(kpis, parts) {
   return `
+    <section class="dashboard-heading">
+      <div>
+        <p class="dashboard-heading__eyebrow">Overview inventaris</p>
+        <h1 class="dashboard-heading__title">Kondisi stok saat ini</h1>
+        <p class="dashboard-heading__description">Pantau ketersediaan dan proses scan tanpa berpindah halaman.</p>
+      </div>
+      <div class="dashboard-heading__status">
+        <span class="dashboard-heading__status-dot"></span>
+        Database lokal aktif
+      </div>
+    </section>
+
     <!-- KPI Strip -->
     <div class="kpi-strip" id="kpi-strip">
       ${renderKpiWidget('inventory_2', kpis.totalSku.toLocaleString('id'), 'Total SKU', '')}
@@ -72,8 +84,6 @@ function renderDashboard(kpis, parts) {
         <button class="direction-btn" id="btn-dir-out" aria-pressed="false">▼ OUT</button>
       </div>
     </div>
-
-    <div style="height:var(--space-4)"></div>
 
     <!-- Grid Controls -->
     <div class="grid-controls" id="grid-controls">
@@ -111,7 +121,7 @@ function renderKpiWidget(icon, number, label, variant) {
   const variantClass = variant ? `kpi-widget--${variant}` : '';
   return `
     <div class="kpi-widget ${variantClass}">
-      <span class="icon icon--lg icon--muted">${icon}</span>
+      <span class="icon icon--lg icon--muted" aria-hidden="true">${icon}</span>
       <div class="kpi-widget__number">${number}</div>
       <div class="kpi-widget__label">${label}</div>
     </div>

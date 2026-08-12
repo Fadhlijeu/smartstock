@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/grid.css">
   <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/shadcn-overrides.css">
 </head>
 <body>
 
@@ -35,8 +36,7 @@
 
       <!-- Nav -->
       <nav class="sidebar-nav">
-
-        <!-- Main pages -->
+        <span class="nav-section-label">Workspace</span>
         <a class="nav-item active"
            data-route="#dashboard"
            href="#dashboard"
@@ -58,6 +58,7 @@
           <span class="nav-item-label">Scanner</span>
         </a>
 
+        <span class="nav-section-label nav-section-label--spaced">Inventory</span>
         <a class="nav-item"
            data-route="#parts"
            href="#parts"
@@ -92,6 +93,10 @@
 
       <!-- Footer -->
       <div class="sidebar-footer">
+        <div class="sidebar-health" aria-label="Database lokal aktif">
+          <span class="sidebar-health__dot"></span>
+          <span class="sidebar-health__label">Lokal &amp; siap</span>
+        </div>
         <a class="nav-item"
            data-route="#settings"
            href="#settings"
