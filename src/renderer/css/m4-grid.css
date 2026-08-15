@@ -1,0 +1,195 @@
+/**
+ * m4-grid.css — M4 Grid Monitor tambahan CSS
+ * Context menu, part card enhancements, min-qty bar, flash animations,
+ * status pills, card new badge.
+ */
+
+/* ─── CONTEXT MENU ───────────────────────────────────────────────── */
+.ctx-menu {
+  background: var(--color-paper-1);
+  border: 1px solid var(--color-paper-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-scrim);
+  padding: var(--space-1) 0;
+  animation: fadeIn 0.1s var(--ease-standard);
+  overflow: hidden;
+}
+
+.ctx-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--color-ink-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration-fast);
+}
+
+.ctx-menu__item:hover {
+  background: var(--color-paper-2);
+}
+
+.ctx-menu__item--danger {
+  color: var(--color-status-out);
+}
+
+.ctx-menu__item--danger:hover {
+  background: var(--color-status-out-dim);
+}
+
+.ctx-menu__divider {
+  height: 1px;
+  background: var(--color-paper-border);
+  margin: var(--space-1) 0;
+}
+
+/* ─── PART CARD ENHANCEMENTS ─────────────────────────────────────── */
+
+/* OK state — default */
+.part-card--ok {
+  /* no special border */
+}
+
+/* LOW state — amber left border */
+.part-card--low {
+  border-left: 3px solid var(--color-status-low);
+}
+
+/* OUT state — red left border, slightly dimmed */
+.part-card--out {
+  border-left: 3px solid var(--color-status-out);
+  opacity: 0.85;
+}
+
+/* REVIEW state — dashed border */
+.part-card--review {
+  border-style: dashed;
+  border-color: var(--color-status-review);
+}
+
+/* Focus visible */
+.part-card:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-color: var(--color-focus);
+}
+
+/* NEW badge */
+.part-card__new-badge {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  background: var(--color-accent);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Status badge in card — icon + text */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* ─── MIN QTY BAR ─────────────────────────────────────────────────── */
+.part-card__qty-bar {
+  width: 100%;
+  height: 3px;
+  background: var(--color-paper-border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: var(--space-1) 0;
+}
+
+.part-card__qty-bar-fill {
+  height: 100%;
+  background: var(--color-status-ok);
+  border-radius: 2px;
+  transition: width 0.4s var(--ease-standard);
+}
+
+/* Low stock — amber bar */
+.part-card--low .part-card__qty-bar-fill {
+  background: var(--color-status-low);
+}
+
+/* Out stock — red bar */
+.part-card--out .part-card__qty-bar-fill {
+  background: var(--color-status-out);
+  width: 0% !important;
+}
+
+/* ─── SCAN FLASH ANIMATIONS ──────────────────────────────────────── */
+@keyframes scanFlashSuccess {
+  0%   { background: var(--color-paper-1); }
+  20%  { background: var(--color-status-ok-dim); border-color: var(--color-status-ok); }
+  100% { background: var(--color-paper-1); }
+}
+
+@keyframes scanFlashOut {
+  0%   { background: var(--color-paper-1); }
+  20%  { background: var(--color-status-out-dim); border-color: var(--color-status-out); }
+  100% { background: var(--color-paper-1); }
+}
+
+.part-card--flash-success {
+  animation: scanFlashSuccess 800ms var(--ease-standard) forwards;
+}
+
+.part-card--flash-out {
+  animation: scanFlashOut 800ms var(--ease-standard) forwards;
+}
+
+/* ─── STATUS PILLS ────────────────────────────────────────────────── */
+.status-pill {
+  transition: all var(--duration-fast) var(--ease-standard);
+  border-radius: var(--radius-full) !important;
+}
+
+.status-pill--active {
+  font-weight: 600;
+}
+
+/* ─── COMPACT VIEW CARD ───────────────────────────────────────────── */
+.parts-grid--compact .part-card__new-badge {
+  font-size: 8px;
+  padding: 1px 4px;
+}
+
+.parts-grid--compact .part-card__qty-bar {
+  display: none;
+}
+
+/* ─── LIST VIEW CARD ──────────────────────────────────────────────── */
+.parts-grid--list .part-card__new-badge {
+  position: static;
+  align-self: center;
+}
+
+.parts-grid--list .part-card__qty-bar {
+  display: none;
+}
+
+/* ─── DETAIL MODAL: qty font-size-3xl ────────────────────────────── */
+.text-3xl {
+  font-size: var(--text-3xl, 2rem);
+}
+
+/* ─── HOVER CARD (override shadcn-overrides.css) ─────────────────── */
+.part-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-accent-dim);
+}
