@@ -25,8 +25,8 @@
 M0: Foundation    [x] DONE — 2026-08-09
 M1: Core Data     [x] DONE — 2026-08-09
 M2: QR Generation [x] DONE — 2026-08-10
-M3: Scanner       [ ] Not started
-M4: Grid Monitor  [ ] Not started
+M3: Scanner       [x] DONE — 2026-08-12
+M4: Grid Monitor  [x] DONE — 2026-08-15
 M5: Polish/Export [ ] Not started
 ```
 
@@ -371,3 +371,63 @@ Renderer Process (HTML/CSS/JS)
 #### Notes / Next Steps
 - [ ] Lanjutkan penerapan struktur visual yang sama pada layar Scanner, Barang, Riwayat, Laporan, dan Pengaturan.
 - [ ] Uji visual interaktif pada resolusi desktop target bersama operator gudang.
+
+---
+
+### SESSION 007 — 2026-08-15
+
+**Agent**: Antigravity (Google DeepMind)
+**Duration**: ~1.5 jam
+**Task**: Audit seluruh app → Fix bugs P1+P2 → Implementasi M4 Grid Monitor
+
+#### Audit Findings
+
+Setelah membaca semua source code, ditemukan:
+- **P1 (Kritis)**: Dashboard scan bar placeholder (tidak memproses transaksi), double openModal di openPartDetail, unused import
+- **P2 (Bug)**: Direction toggle active class salah, double event listener di parts modal, aria-disabled bukan disabled, history filter default ke hari ini
+
+#### Actions Taken
+
+**Branch `fix/bugs-p1-p2`:**
+1. ✅ Fix `handleScanInput` di dashboard.js — sekarang benar-benar memanggil `createTransaction` + toast feedback
+2. ✅ Fix `openPartDetail` — tidak double-open modal lagi (load data dulu, baru buka modal sekali)
+3. ✅ Hapus unused `openQRModal` import di scanner.js
+4. ✅ Fix direction toggle active class (`active-in`/`active-out` → `active`)
+5. ✅ Fix double event listener di parts.js detail modal edit button
+6. ✅ Fix QR Labels button — ganti `aria-disabled` dengan `disabled` yang sesungguhnya
+7. ✅ Fix history default filter — default kosong = tampil semua, bukan filter ke hari ini
+8. ✅ Tambah `refreshKpis()` — KPI strip update otomatis setelah setiap scan
+
+**Branch `feat/m4-grid-monitor`:**
+9. ✅ Category-based icon: 15+ kategori → icon Material Symbols yang sesuai
+10. ✅ Status borders per spec: LOW = left border amber, OUT = left border red + opacity, REVIEW = dashed border
+11. ✅ Status badge dengan icon (check_circle, warning, cancel, rate_review)
+12. ✅ "NEW" badge pill untuk part yang dibuat < 24 jam
+13. ✅ Min qty progress bar (linear) — warna menyesuaikan status
+14. ✅ Context menu klik kanan: Lihat QR, Edit, Riwayat, Hapus
+15. ✅ Filter panel: status pills (Semua/OK/LOW/OUT/REVIEW) + category dropdown
+16. ✅ Sort: Status kritis dulu / Nama A-Z / Qty terkecil / Qty terbesar / Terbaru
+17. ✅ View mode: Grid / Compact / List (toggle bar)
+18. ✅ Arrow key navigation antar card
+19. ✅ Double click card → pre-fill scan bar dengan QR ID/Serial
+20. ✅ Real-time stock update: qty + status badge + flash animation (scanFlashSuccess/Out)
+21. ✅ Delete dari context menu dengan confirmDialog
+22. ✅ Buat `src/renderer/css/m4-grid.css` — semua CSS M4 baru
+
+#### Files Modified/Created
+
+- `src/renderer/js/views/dashboard.js` — Full rewrite M4
+- `src/renderer/css/m4-grid.css` — [NEW] M4 CSS additions
+- `src/renderer/index.html` — Tambah m4-grid.css link
+- `src/renderer/js/views/scanner.js` — Remove unused import
+- `src/renderer/js/views/parts.js` — Fix double event listener
+- `src/renderer/js/views/reports.js` — Fix disabled button
+- `src/renderer/js/views/history.js` — Fix default filter
+
+#### Open Questions / Next Steps
+
+- [ ] **M5: Polish/Export** — PDF labels via pdfkit, packaging electron-builder
+- [ ] **UI Polish** — shadcn consistency di Scanner & Settings views
+- [ ] **Image upload** — Part image upload (belum diimplementasi)
+- [ ] **PR ke main** — Merge fix/bugs-p1-p2 dan feat/m4-grid-monitor
+
