@@ -1,32 +1,31 @@
 /**
- * part-form.js — Form Tambah/Edit Barang untuk SAP StockMon
- * Mendukung mode: 'create' | 'edit'
- * Validasi client-side sebelum kirim ke IPC.
+ * part-form.js — Form Tambah/Edit Barang untuk SAP StockMon (Remake & Full Polish)
+ * Fitur:
+ * - Smart real-time category suggestion based on description keyword matching
+ * - Client-side field validation & inline errors
+ * - Serial number auto-generation hint
+ * - Responsive multi-column layout
  */
 
 import { toast } from '../components/toast.js';
 
-// Kategori dari database (dari seed 001_initial.sql)
+// Kategori dari database
 const CATEGORY_OPTIONS = [
   'Uncategorized',
   'Mechanical/Fastener',
   'Mechanical/Bearing',
-  'Mechanical/Seal & Gasket',
-  'Mechanical/Coupling',
-  'Electrical/Motor',
-  'Electrical/Cable & Wiring',
-  'Electrical/Panel & Control',
-  'Electrical/Sensor & Instrument',
-  'Fluid/Pipe & Fitting',
-  'Fluid/Pump',
-  'Fluid/Valve',
-  'Consumable/Lubricant & Oil',
-  'Consumable/Cleaning',
-  'Consumable/PPE',
-  'Safety/Fire Protection',
-  'Safety/Signage',
-  'Tool/Hand Tool',
-  'Tool/Power Tool',
+  'Mechanical/Seal',
+  'Mechanical/Pipe & Fitting',
+  'Mechanical/Belt & Chain',
+  'Electrical/Cable',
+  'Electrical/Component',
+  'Electrical/Panel',
+  'Instrument/Pressure',
+  'Instrument/Flow',
+  'Consumable/Lubricant',
+  'Consumable/Chemical',
+  'Tool',
+  'Safety',
 ];
 
 const UNIT_OPTIONS = [
@@ -34,11 +33,23 @@ const UNIT_OPTIONS = [
   'box', 'roll', 'batang', 'lembar', 'unit', 'buah', 'pak', 'pasang',
 ];
 
-/**
- * Render form HTML
- * @param {Object|null} part - null = create mode, Object = edit mode
- * @returns {string} HTML string
- */
+const KEYWORD_RULES = [
+  { category: 'Mechanical/Fastener', keywords: ['baut', 'bolt', 'screw', 'mur', 'nut', 'sekrup', 'angkur', 'stud', 'washer', 'ring plat'] },
+  { category: 'Mechanical/Bearing', keywords: ['bearing', 'laher', 'pillow block', 'ball bearing', 'roller bearing', 'ucp'] },
+  { category: 'Mechanical/Seal', keywords: ['seal', 'gasket', 'o-ring', 'packing', 'oil seal', 'mechanical seal'] },
+  { category: 'Mechanical/Pipe & Fitting', keywords: ['pipa', 'pipe', 'elbow', 'flange', 'tee', 'reducer', 'valve', 'fitting', 'nipple'] },
+  { category: 'Mechanical/Belt & Chain', keywords: ['v-belt', 'belt', 'rantai', 'chain', 'sprocket', 'pulley', 'timing belt'] },
+  { category: 'Electrical/Cable', keywords: ['kabel', 'cable', 'wire', 'nyy', 'nyfgbhy', 'nyaf', 'kawat tembaga'] },
+  { category: 'Electrical/Component', keywords: ['relay', 'contactor', 'mcb', 'mccb', 'fuse', 'inverter', 'plc', 'terminal block', 'timer'] },
+  { category: 'Electrical/Panel', keywords: ['panel', 'box panel', 'enclosure', 'busbar', 'duct'] },
+  { category: 'Instrument/Pressure', keywords: ['pressure', 'gauge', 'manometer', 'transmitter', 'pressure switch'] },
+  { category: 'Instrument/Flow', keywords: ['flow', 'flowmeter', 'rotameter', 'level sensor', 'temperature', 'thermocouple', 'pt100'] },
+  { category: 'Consumable/Lubricant', keywords: ['oli', 'oil', 'grease', 'pelumas', 'gemuk', 'wd-40', 'shell tellus', 'meditran'] },
+  { category: 'Consumable/Chemical', keywords: ['cleaner', 'thinner', 'cat', 'lem', 'loctite', 'sealant', 'alkohol'] },
+  { category: 'Tool', keywords: ['kunci', 'wrench', 'obeng', 'screwdriver', 'tang', 'plier', 'gerinda', 'bor', 'drill', 'palu', 'hammer'] },
+  { category: 'Safety', keywords: ['helm', 'safety', 'sarung tangan', 'glove', 'kacamata', 'goggle', 'sepatu safety', 'earplug', 'masker', 'rompi'] },
+];
+
 export function renderPartForm(part = null) {
   const isEdit = !!part;
   const today = new Date().toISOString().slice(0, 10);
@@ -82,11 +93,16 @@ export function renderPartForm(part = null) {
 
       </div>
 
-      <!-- Row 2: Description -->
+      <!-- Row 2: Description + Realtime Classification Hint -->
       <div class="form-group">
-        <label class="form-label required" for="pf-desc">Deskripsi Barang</label>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label class="form-label required" for="pf-desc">Deskripsi Barang</label>
+          <span id="category-suggestion-badge" style="font-size:var(--text-xs);color:var(--color-accent);display:none">
+            💡 Saran Kategori Terdeteksi
+          </span>
+        </div>
         <input type="text" class="form-input" id="pf-desc" name="description"
-          value="${val('description')}" placeholder="Nama barang lengkap, e.g. Baut M10 x 25mm SS304" required>
+          value="${val('description')}" placeholder="Ketik nama spesifikasi barang lengkap (contoh: Baut M10x30 SS304)..." required>
         <span class="form-error" id="err-description" hidden></span>
       </div>
 
@@ -96,9 +112,9 @@ export function renderPartForm(part = null) {
         <div class="form-group">
           <label class="form-label" for="pf-serial">Serial Number</label>
           <input type="text" class="form-input form-input--mono" id="pf-serial" name="serialNumber"
-            value="${val('serialNumber')}" placeholder="BOLT-M10-001"
+            value="${val('serialNumber')}" placeholder="Contoh: FAST-2026-0001"
             ${isEdit ? 'readonly title="Serial number tidak bisa diubah setelah dibuat"' : ''}>
-          <span class="form-hint">${isEdit ? 'Tidak dapat diubah setelah dibuat' : 'Kosongkan untuk auto-generate'}</span>
+          <span class="form-hint">${isEdit ? 'Tidak dapat diubah setelah dibuat' : 'Kosongkan untuk auto-generate otomatis'}</span>
           <span class="form-error" id="err-serialNumber" hidden></span>
         </div>
 
@@ -115,15 +131,15 @@ export function renderPartForm(part = null) {
       <div style="display:grid;grid-template-columns:1fr 120px 1fr;gap:var(--space-4)">
 
         <div class="form-group">
-          <label class="form-label required" for="pf-qty">${isEdit ? 'Stok Saat Ini' : 'Jumlah Awal (Qty)'}</label>
+          <label class="form-label required" for="pf-qty">${isEdit ? 'Stok Saat Ini' : 'Jumlah Masuk Awal (Qty)'}</label>
           <input type="number" class="form-input" id="pf-qty" name="${isEdit ? 'currentQty' : 'initialQty'}"
-            value="${isEdit ? val('currentQty', 0) : val('initialQty', 0)}"
+            value="${isEdit ? val('currentQty', 0) : val('initialQty', 1)}"
             min="0" step="1" required>
           <span class="form-error" id="err-qty" hidden></span>
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="pf-unit">Unit</label>
+          <label class="form-label" for="pf-unit">Satuan (Unit)</label>
           <select class="form-select" id="pf-unit" name="unit">
             ${unitOpts}
           </select>
@@ -131,11 +147,11 @@ export function renderPartForm(part = null) {
 
         <div class="form-group">
           <label class="form-label" for="pf-min-qty">
-            Min. Qty
-            <span class="form-hint" style="display:inline;margin-left:var(--space-1)">(threshold LOW)</span>
+            Batas Minimum
+            <span class="form-hint" style="display:inline;margin-left:var(--space-1)">(Alert LOW)</span>
           </label>
           <input type="number" class="form-input" id="pf-min-qty" name="minQty"
-            value="${val('minQty', 0)}" min="0" step="1">
+            value="${val('minQty', 5)}" min="0" step="1">
         </div>
 
       </div>
@@ -173,7 +189,6 @@ export function renderPartForm(part = null) {
 export function validatePartForm(form, isEdit = false) {
   let valid = true;
 
-  // Clear semua errors dulu
   form.querySelectorAll('.form-error').forEach((el) => {
     el.hidden = true;
     el.textContent = '';
@@ -213,7 +228,6 @@ export function validatePartForm(form, isEdit = false) {
 
   if (!valid) return null;
 
-  // Build data object
   const data = {
     dateEntry: g('dateEntry'),
     mrInvoice: g('mrInvoice'),
@@ -235,17 +249,13 @@ export function validatePartForm(form, isEdit = false) {
 }
 
 /**
- * Submit handler — create atau update
- * @param {HTMLFormElement} form
- * @param {string|null} partId - null = create
- * @param {Function} onSuccess - dipanggil dengan part data
+ * Submit handler
  */
 export async function submitPartForm(form, partId = null, onSuccess) {
   const isEdit = !!partId;
   const data = validatePartForm(form, isEdit);
   if (!data) return;
 
-  // Disable submit button
   const submitBtn = form.closest('[id]')?.querySelector('#modal-submit-btn') ||
                     document.querySelector('#modal-submit-btn');
   if (submitBtn) {
@@ -268,7 +278,6 @@ export async function submitPartForm(form, partId = null, onSuccess) {
       );
       if (typeof onSuccess === 'function') onSuccess(res.data);
     } else {
-      // Tampilkan error spesifik
       if (res.error.code === 'DUPLICATE_SERIAL') {
         const sn = form.querySelector('[name="serialNumber"]');
         if (sn) sn.classList.add('error');
@@ -286,6 +295,32 @@ export async function submitPartForm(form, partId = null, onSuccess) {
       submitBtn.innerHTML = isEdit ? 'Simpan Perubahan' : 'Tambah Barang';
     }
   }
+}
+
+/**
+ * Attach live auto-categorization listener to description input
+ */
+export function attachCategorySuggest(form) {
+  const descInput = form.querySelector('#pf-desc');
+  const catSelect = form.querySelector('#pf-category');
+  const badge = form.querySelector('#category-suggestion-badge');
+
+  if (!descInput || !catSelect) return;
+
+  descInput.addEventListener('input', () => {
+    const text = descInput.value.toLowerCase();
+    for (const rule of KEYWORD_RULES) {
+      if (rule.keywords.some((k) => text.includes(k))) {
+        catSelect.value = rule.category;
+        if (badge) {
+          badge.textContent = `💡 Saran: ${rule.category}`;
+          badge.style.display = 'inline-block';
+        }
+        return;
+      }
+    }
+    if (badge) badge.style.display = 'none';
+  });
 }
 
 function formatDate(isoStr) {

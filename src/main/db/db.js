@@ -34,21 +34,20 @@ function getDbPath() {
 
 /**
  * Initialize database connection dan run migrations
- * @param {import('winston').Logger} logger
+ * @param {Object} logger
+ * @param {string} [customPath]
  * @returns {import('better-sqlite3').Database}
  */
-function initDatabase(logger) {
+function initDatabase(logger = console, customPath = null) {
   if (_db) {
     return _db;
   }
 
-  const dbPath = getDbPath();
-  logger.info('Opening database', { path: dbPath });
+  const dbPath = customPath || getDbPath();
+  if (logger?.info) logger.info('Opening database', { path: dbPath });
 
   try {
-    _db = new Database(dbPath, {
-      // verbose: isDev ? console.log : null,
-    });
+    _db = new Database(dbPath);
 
     // Performance + safety settings
     _db.pragma('journal_mode = WAL');       // Better concurrent performance
@@ -60,10 +59,10 @@ function initDatabase(logger) {
     // Run migrations
     runMigrations(_db, logger);
 
-    logger.info('Database initialized successfully');
+    if (logger?.info) logger.info('Database initialized successfully');
     return _db;
   } catch (err) {
-    logger.error('Failed to initialize database', { error: err.message, dbPath });
+    if (logger?.error) logger.error('Failed to initialize database', { error: err.message, dbPath });
     throw err;
   }
 }
@@ -80,18 +79,26 @@ function getDb() {
 }
 
 /**
+ * Set custom db instance (useful for test harnesses)
+ */
+function setDb(db) {
+  _db = db;
+}
+
+/**
  * Close database connection gracefully
  */
-function closeDatabase(logger) {
+function closeDatabase(logger = console) {
   if (_db) {
     try {
       _db.close();
       _db = null;
-      logger.info('Database connection closed');
+      if (logger?.info) logger.info('Database connection closed');
     } catch (err) {
-      logger.error('Error closing database', { error: err.message });
+      if (logger?.error) logger.error('Error closing database', { error: err.message });
     }
   }
 }
 
-module.exports = { initDatabase, getDb, closeDatabase };
+module.exports = { initDatabase, getDb, setDb, closeDatabase, getDbPath };
+

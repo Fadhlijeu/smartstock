@@ -3,7 +3,11 @@
  * Setiap handler wajib: try-catch + return { success, data|error }
  */
 
-const { ipcMain, dialog, shell, app } = require('electron');
+let electronModule = {};
+try {
+  electronModule = require('electron');
+} catch {}
+
 const path = require('path');
 const fs = require('fs');
 const partsRepo = require('./db/parts.repository');
@@ -17,12 +21,31 @@ const sequenceManager = require('./db/sequence.manager');
 /**
  * Register semua IPC handlers
  * @param {import('./logger').Logger} logger
+ * @param {Object} [customIpcMain]
  */
-function registerIpcHandlers(logger) {
+function registerIpcHandlers(logger, customIpcMain = null) {
+  const ipc = customIpcMain || (electronModule && typeof electronModule === 'object' ? electronModule.ipcMain : null);
+  if (!ipc || !ipc.handle) {
+    if (logger?.warn) logger.warn('ipcMain not available');
+    return;
+  }
+
+  const dialog = electronModule.dialog || {};
+  const shell = electronModule.shell || {};
+  const app = electronModule.app || { getVersion: () => '0.1.0', getPath: () => '' };
+
+  function getBrowserWin(event) {
+    try {
+      if (electronModule && electronModule.BrowserWindow && event && event.sender) {
+        return electronModule.BrowserWindow.fromWebContents(event.sender) || null;
+      }
+    } catch (_) {}
+    return null;
+  }
 
   // ── Parts ──────────────────────────────────────────────────────────────────
 
-  ipcMain.handle('parts:getAll', async (_, filters) => {
+  ipc.handle('parts:getAll', async (_, filters) => {
     try {
       return partsRepo.getParts(filters);
     } catch (err) {
@@ -31,7 +54,7 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('parts:getById', async (_, id) => {
+  ipc.handle('parts:getById', async (_, id) => {
     try {
       return partsRepo.getPartById(id);
     } catch (err) {
@@ -40,7 +63,7 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('parts:getByQrId', async (_, qrId) => {
+  ipc.handle('parts:getByQrId', async (_, qrId) => {
     try {
       return partsRepo.getPartByQrId(qrId);
     } catch (err) {
@@ -49,7 +72,7 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('parts:getBySerialNumber', async (_, serialNumber) => {
+  ipc.handle('parts:getBySerialNumber', async (_, serialNumber) => {
     try {
       return partsRepo.getPartBySerialNumber(serialNumber);
     } catch (err) {
@@ -58,7 +81,7 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('parts:create', async (_, data) => {
+  ipc.handle('parts:create', async (_, data) => {
     try {
       return partsRepo.createPart(data);
     } catch (err) {
@@ -67,7 +90,7 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('parts:update', async (_, id, data) => {
+  ipc.handle('parts:update', async (_, id, data) => {
     try {
       return partsRepo.updatePart(id, data);
     } catch (err) {
@@ -76,7 +99,7 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('parts:delete', async (_, id) => {
+  ipc.handle('parts:delete', async (_, id) => {
     try {
       return partsRepo.deletePart(id);
     } catch (err) {
@@ -85,7 +108,16 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('parts:kpiStats', async () => {
+  ipc.handle('parts:deleteBatch', async (_, ids) => {
+    try {
+      return partsRepo.deletePartsBatch(ids);
+    } catch (err) {
+      logger.error('IPC parts:deleteBatch error', { error: err.message });
+      return { success: false, error: { code: 'IPC_ERROR', message: err.message } };
+    }
+  });
+
+  ipc.handle('parts:kpiStats', async () => {
     try {
       return partsRepo.getKpiStats();
     } catch (err) {
@@ -96,7 +128,7 @@ function registerIpcHandlers(logger) {
 
   // ── Settings ───────────────────────────────────────────────────────────────
 
-  ipcMain.handle('settings:getAll', async () => {
+  ipc.handle('settings:getAll', async () => {
     try {
       return settingsRepo.getAllSettings();
     } catch (err) {
@@ -105,7 +137,7 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('settings:get', async (_, key) => {
+  ipc.handle('settings:get', async (_, key) => {
     try {
       return settingsRepo.getSetting(key);
     } catch (err) {
@@ -114,7 +146,7 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('settings:update', async (_, updates) => {
+  ipc.handle('settings:update', async (_, updates) => {
     try {
       return settingsRepo.updateSettings(updates);
     } catch (err) {
@@ -125,13 +157,14 @@ function registerIpcHandlers(logger) {
 
   // ── Dialog ─────────────────────────────────────────────────────────────────
 
-  ipcMain.handle('dialog:openFile', async (event, options) => {
+  ipc.handle('dialog:openFile', async (event, options) => {
     try {
-      const win = require('electron').BrowserWindow.fromWebContents(event.sender);
-      const result = await dialog.showOpenDialog(win, options || {
+      const win = getBrowserWin(event);
+      const opts = options || {
         properties: ['openFile'],
         filters: [{ name: 'CSV Files', extensions: ['csv'] }],
-      });
+      };
+      const result = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
       return { success: true, data: result };
     } catch (err) {
       logger.error('IPC dialog:openFile error', { error: err.message });
@@ -141,31 +174,65 @@ function registerIpcHandlers(logger) {
 
   // ── App ────────────────────────────────────────────────────────────────────
 
-  ipcMain.handle('app:getVersion', async () => {
+  ipc.handle('app:getVersion', async () => {
     return { success: true, data: app.getVersion() };
   });
 
-  ipcMain.handle('app:openDataDir', async () => {
+  ipc.handle('app:openDataDir', async () => {
     try {
       const dataDir = path.join(app.getPath('userData'), 'data');
       shell.openPath(dataDir);
       return { success: true };
     } catch (err) {
-      return { success: false, error: { code: 'IPC_ERROR', message: err.message } };
+      return { success: false, error: { code: 'FS_ERROR', message: err.message } };
     }
   });
 
-  // ── Placeholders untuk modul yang akan diimplementasi di M1-M3 ─────────────
-
-  ipcMain.handle('qr:generate', async (_, partId) => {
-    return { success: false, error: { code: 'NOT_IMPLEMENTED', message: 'QR generation akan diimplementasi di M2' } };
+  ipc.handle('data:seedDemo', async () => {
+    try {
+      const result = partsRepo.seedDemoData();
+      return result;
+    } catch (err) {
+      logger.error('IPC data:seedDemo error', { error: err.message });
+      return { success: false, error: { code: 'SEED_ERROR', message: err.message } };
+    }
   });
 
-  ipcMain.handle('qr:generateBatch', async (_, partIds) => {
-    return { success: false, error: { code: 'NOT_IMPLEMENTED', message: 'QR batch generation akan diimplementasi di M2' } };
+  ipc.handle('qr:generate', async (_, partId) => {
+    try {
+      const partRes = partsRepo.getPartById(partId);
+      if (!partRes.success) return partRes;
+      const part = partRes.data;
+      const qrData = await qrGenerator.generateForPart(part);
+      partsRepo.updatePart(partId, {
+        qrGeneratedAt: new Date().toISOString(),
+        qrPayloadHash: qrData.hash,
+      });
+      return { success: true, data: { dataUrl: qrData.dataUrl, svg: qrData.svg, payload: qrData.payload, hash: qrData.hash, qrId: part.qrId } };
+    } catch (err) {
+      logger.error('IPC qr:generate error', { partId, error: err.message });
+      return { success: false, error: { code: 'QR_ERROR', message: err.message } };
+    }
   });
 
-  ipcMain.handle('transactions:getAll', async (_, filters) => {
+  ipc.handle('qr:generateBatch', async (_, partIds) => {
+    try {
+      const results = [];
+      for (const id of partIds) {
+        const partRes = partsRepo.getPartById(id);
+        if (partRes.success) {
+          const qr = await qrGenerator.generateForPart(partRes.data);
+          results.push({ part: partRes.data, ...qr });
+        }
+      }
+      return { success: true, data: results };
+    } catch (err) {
+      logger.error('IPC qr:generateBatch error', { error: err.message });
+      return { success: false, error: { code: 'QR_BATCH_ERROR', message: err.message } };
+    }
+  });
+
+  ipc.handle('transactions:getAll', async (_, filters) => {
     try {
       return transactionsRepo.getTransactions(filters);
     } catch (err) {
@@ -174,20 +241,23 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('transactions:create', async (event, data) => {
+  ipc.handle('transactions:create', async (event, data) => {
     try {
       const result = transactionsRepo.createTransaction(data);
       if (result.success) {
-        event.sender.send('stock-updated', result.data);
+        const win = getBrowserWin(event);
+        if (win && win.webContents) {
+          win.webContents.send('stock-updated', result.data);
+        }
       }
       return result;
     } catch (err) {
       logger.error('IPC transactions:create error', { error: err.message });
-      return { success: false, error: { code: 'IPC_ERROR', message: err.message } };
+      return { success: false, error: { code: 'TX_ERROR', message: err.message } };
     }
   });
 
-  ipcMain.handle('transactions:undoLast', async () => {
+  ipc.handle('transactions:undoLast', async () => {
     try {
       return transactionsRepo.undoLastTransaction();
     } catch (err) {
@@ -196,9 +266,9 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('export:excel', async (event, type, filters) => {
+  ipc.handle('export:excel', async (event, type, filters) => {
     try {
-      const win = require('electron').BrowserWindow.fromWebContents(event.sender);
+      const win = getBrowserWin(event);
       const reportNames = {
         stock: 'StockSnapshot',
         transactions: 'TransactionLog',
@@ -206,11 +276,12 @@ function registerIpcHandlers(logger) {
       };
       const reportName = reportNames[type] || 'StockReport';
       const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const result = await dialog.showSaveDialog(win, {
+      const saveOptions = {
         title: 'Simpan Laporan Excel',
         defaultPath: `${reportName}_${stamp}.xlsx`,
         filters: [{ name: 'Excel Workbook', extensions: ['xlsx'] }],
-      });
+      };
+      const result = win ? await dialog.showSaveDialog(win, saveOptions) : await dialog.showSaveDialog(saveOptions);
 
       if (result.canceled || !result.filePath) {
         return { success: false, error: { code: 'CANCELED', message: 'Export dibatalkan' } };
@@ -218,18 +289,18 @@ function registerIpcHandlers(logger) {
 
       if (type === 'transactions') {
         const exported = await exportService.exportTransactionLog(result.filePath, filters);
-        if (exported.success) shell.showItemInFolder(result.filePath);
+        if (exported.success && shell && shell.showItemInFolder) shell.showItemInFolder(result.filePath);
         return exported;
       }
 
       if (type === 'lowStock') {
         const exported = await exportService.exportLowStock(result.filePath);
-        if (exported.success) shell.showItemInFolder(result.filePath);
+        if (exported.success && shell && shell.showItemInFolder) shell.showItemInFolder(result.filePath);
         return exported;
       }
 
       const exported = await exportService.exportStockSnapshot(result.filePath, filters);
-      if (exported.success) shell.showItemInFolder(result.filePath);
+      if (exported.success && shell && shell.showItemInFolder) shell.showItemInFolder(result.filePath);
       return exported;
     } catch (err) {
       logger.error('IPC export:excel error', { error: err.message });
@@ -237,21 +308,22 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('export:pdf', async (_, type, filters) => {
+  ipc.handle('export:pdf', async (_, type, filters) => {
     return { success: false, error: { code: 'NOT_IMPLEMENTED', message: 'PDF export akan diimplementasi di M5' } };
   });
 
-  ipcMain.handle('import:csv', async (event, filePath) => {
+  ipc.handle('import:csv', async (event, filePath) => {
     try {
       // Jika tidak ada filePath, tampilkan file dialog
       if (!filePath) {
-        const win = require('electron').BrowserWindow.fromWebContents(event.sender);
-        const result = await dialog.showOpenDialog(win, {
+        const win = getBrowserWin(event);
+        const openOptions = {
           title: 'Pilih File CSV',
           properties: ['openFile'],
           filters: [{ name: 'CSV Files', extensions: ['csv', 'txt'] }],
-        });
-        if (result.canceled || !result.filePaths.length) {
+        };
+        const result = win ? await dialog.showOpenDialog(win, openOptions) : await dialog.showOpenDialog(openOptions);
+        if (result.canceled || !result.filePaths || !result.filePaths.length) {
           return { success: false, error: { code: 'CANCELED', message: 'Import dibatalkan' } };
         }
         filePath = result.filePaths[0];
@@ -279,20 +351,22 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('import:confirm', async (event, rows) => {
+  ipc.handle('import:confirm', async (event, rows) => {
     try {
       if (!rows || !Array.isArray(rows) || rows.length === 0) {
         return { success: false, error: { code: 'NO_DATA', message: 'Tidak ada data untuk diimport' } };
       }
 
-      const win = require('electron').BrowserWindow.fromWebContents(event.sender);
+      const win = getBrowserWin(event);
       let lastProgress = 0;
 
       const result = csvService.batchInsert(rows, (current, total) => {
         const pct = Math.round((current / total) * 100);
         if (pct !== lastProgress) {
           lastProgress = pct;
-          win.webContents.send('import-progress', { current, total, percent: pct });
+          if (win && win.webContents) {
+            win.webContents.send('import-progress', { current, total, percent: pct });
+          }
         }
       });
 
@@ -304,14 +378,15 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('import:downloadTemplate', async (event) => {
+  ipc.handle('import:downloadTemplate', async (event) => {
     try {
-      const win = require('electron').BrowserWindow.fromWebContents(event.sender);
-      const result = await dialog.showSaveDialog(win, {
+      const win = getBrowserWin(event);
+      const saveOptions = {
         title: 'Simpan Template CSV',
         defaultPath: 'template_import_barang.csv',
         filters: [{ name: 'CSV Files', extensions: ['csv'] }],
-      });
+      };
+      const result = win ? await dialog.showSaveDialog(win, saveOptions) : await dialog.showSaveDialog(saveOptions);
 
       if (result.canceled || !result.filePath) {
         return { success: false, error: { code: 'CANCELED', message: 'Dibatalkan' } };
@@ -319,39 +394,35 @@ function registerIpcHandlers(logger) {
 
       const content = csvService.generateTemplate();
       fs.writeFileSync(result.filePath, content, 'utf-8');
-      shell.showItemInFolder(result.filePath);
+      if (shell && shell.showItemInFolder) shell.showItemInFolder(result.filePath);
 
       return { success: true, data: { filePath: result.filePath } };
     } catch (err) {
       logger.error('IPC import:downloadTemplate error', { error: err.message });
-      return { success: false, error: { code: 'IO_ERROR', message: err.message } };
+      return { success: false, error: { code: 'TEMPLATE_ERROR', message: err.message } };
     }
   });
 
   // ── QR Code ────────────────────────────────────────────────────────────────
 
-  ipcMain.handle('qr:generateForPart', async (_, partId) => {
+  ipc.handle('qr:generateForPart', async (_, partId) => {
     try {
       const partRes = partsRepo.getPartById(partId);
       if (!partRes.success) return partRes;
       const part = partRes.data;
-
-      const { dataUrl, svg, payload, hash } = await qrGenerator.generateForPart(part);
-
-      // Simpan hash ke DB (untuk deteksi stale)
+      const qrData = await qrGenerator.generateForPart(part);
       partsRepo.updatePart(partId, {
         qrGeneratedAt: new Date().toISOString(),
-        qrPayloadHash: hash,
+        qrPayloadHash: qrData.hash,
       });
-
-      return { success: true, data: { dataUrl, svg, payload, hash, qrId: part.qrId } };
+      return { success: true, data: { ...qrData, part } };
     } catch (err) {
-      logger.error('IPC qr:generateForPart error', { error: err.message });
+      logger.error('IPC qr:generateForPart error', { partId, error: err.message });
       return { success: false, error: { code: 'QR_ERROR', message: err.message } };
     }
   });
 
-  ipcMain.handle('qr:getDataUrl', async (_, payload, size) => {
+  ipc.handle('qr:getDataUrl', async (_, payload, size) => {
     try {
       const dataUrl = await qrGenerator.generateDataUrl(payload, { size: size || 256 });
       return { success: true, data: { dataUrl } };
@@ -361,7 +432,7 @@ function registerIpcHandlers(logger) {
     }
   });
 
-  ipcMain.handle('qr:peekNext', async () => {
+  ipc.handle('qr:peekNext', async () => {
     try {
       const nextId = sequenceManager.peekNextQrId();
       return { success: true, data: { nextId } };

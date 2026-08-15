@@ -1,21 +1,25 @@
 /**
- * scanner.js — Scanner & Live Transactions View (M3 Full)
+ * scanner.js — Scanner & Live Transactions View (With Upload, Camera, HID, Audio & Undo)
  * Fitur:
- * - USB HID keyboard buffer listener (input bar)
- * - Manual QR ID / Serial Number input
- * - Transaksi IN/OUT
- * - Audio feedback (beep)
- * - Scan history (last 10)
+ * - Scan via upload gambar QR/Barcode (file picker, drag & drop, paste Ctrl+V)
+ * - WebRTC live camera scanner / video preview toggle
+ * - USB HID rapid scanner buffer listener
+ * - Mode: KELUAR (OUT), MASUK (IN), AUDIT (Cek Stok)
+ * - Quick Quantity presets (+1, +5, +10, +25, +50, custom)
+ * - Web Audio API acoustic feedback
+ * - Real-time recent transaction log with one-click UNDO
  */
 
 import { toast } from '../components/toast.js';
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let scanHistory = [];      // Array of recent scan results
-let scanMode = 'OUT';      // 'IN' | 'OUT'
+let scanMode = 'OUT';      // 'OUT' | 'IN' | 'AUDIT'
 let isProcessing = false;  // Debounce concurrent scans
 let hidBuffer = '';        // USB HID keyboard buffer
 let hidTimer = null;       // Timer untuk flush buffer
+let cameraStream = null;   // WebRTC stream
+let isCameraActive = false;
 
 // ─── AUDIO ────────────────────────────────────────────────────────────────────
 function beep(type = 'success') {
@@ -32,102 +36,171 @@ function beep(type = 'success') {
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
       osc.start();
       osc.stop(ctx.currentTime + 0.15);
+    } else if (type === 'warning') {
+      osc.frequency.value = 580;
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
     } else {
-      // Error: dua nada pendek
+      // Error
       osc.frequency.value = 220;
       gain.gain.setValueAtTime(0.4, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
       osc.start();
       osc.stop(ctx.currentTime + 0.3);
     }
-  } catch (_) {
-    // Audio context tidak tersedia, skip
-  }
+  } catch (_) {}
 }
 
-// ─── MOUNT ───────────────────────────────────────────────────────────────────
+// ─── MOUNT / UNMOUNT ──────────────────────────────────────────────────────────
 export async function mount(container) {
   container.innerHTML = renderShell();
   bindEvents(container);
   loadRecentHistory(container);
   focusScanInput(container);
+
+  return () => {
+    stopCamera();
+  };
 }
 
 // ─── SHELL ────────────────────────────────────────────────────────────────────
 function renderShell() {
+  const isAudit = scanMode === 'AUDIT';
+  const isOut = scanMode === 'OUT';
+  const isIn = scanMode === 'IN';
+
+  const modeColor = isOut ? 'var(--color-status-out)'
+    : isIn ? 'var(--color-status-ok)'
+    : 'var(--color-accent)';
+
+  const modeIcon = isOut ? 'logout'
+    : isIn ? 'login'
+    : 'manage_search';
+
+  const modeTitle = isOut ? 'MODE KELUAR (OUT)'
+    : isIn ? 'MODE MASUK (IN)'
+    : 'MODE AUDIT (CEK DATA)';
+
   return `
     <div class="section-header">
-      <h2 class="section-title">Scanner</h2>
-      <div style="font-size:var(--text-sm);color:var(--color-ink-muted)">
-        Scan barcode/QR atau ketik QR ID / Serial Number
+      <div>
+        <h2 class="section-title">Terminal Scanner</h2>
+        <div style="font-size:var(--text-sm);color:var(--color-ink-muted);margin-top:2px">
+          Scan barcode/QR via scanner fisik, kamera, upload gambar, atau input manual
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <input type="file" id="qr-file-input" accept="image/*" style="display:none">
+        <button class="btn btn--secondary btn--sm" id="btn-upload-qr" title="Upload gambar QR Code/Barcode">
+          <span class="icon icon--sm">upload_file</span>
+          <span>Upload Gambar</span>
+        </button>
+        <button class="btn btn--secondary btn--sm" id="btn-toggle-camera" title="Nyalakan kamera live scan">
+          <span class="icon icon--sm">${isCameraActive ? 'videocam_off' : 'videocam'}</span>
+          <span>${isCameraActive ? 'Tutup Kamera' : 'Buka Kamera'}</span>
+        </button>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 360px;gap:var(--space-6);align-items:start">
+    <!-- Camera Preview Area (Collapsible) -->
+    <div id="camera-container" style="display:${isCameraActive ? 'block' : 'none'};margin-bottom:var(--space-5);background:var(--color-paper-base);border:1px solid var(--color-paper-border);border-radius:var(--radius-xl);overflow:hidden;text-align:center;position:relative;max-width:600px;margin-left:auto;margin-right:auto">
+      <video id="camera-video" playsinline style="width:100%;max-height:280px;object-fit:cover;border-radius:var(--radius-xl)"></video>
+      <div style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center">
+        <div style="width:200px;height:200px;border:2px dashed var(--color-accent);border-radius:var(--radius-lg);box-shadow:0 0 0 9999px rgba(0,0,0,0.4)"></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 380px;gap:var(--space-6);align-items:start">
 
       <!-- Main scan area -->
       <div>
 
         <!-- Mode toggle -->
         <div style="display:flex;background:var(--color-paper-base);border:1px solid var(--color-paper-border);border-radius:var(--radius-lg);padding:var(--space-1);gap:var(--space-1);margin-bottom:var(--space-5);width:fit-content">
-          <button class="btn btn--sm scan-mode-btn ${scanMode === 'OUT' ? 'btn--primary' : 'btn--ghost'}" data-mode="OUT"
-            style="${scanMode === 'OUT' ? '' : 'color:var(--color-ink-secondary)'}">
+          <button class="btn btn--sm scan-mode-btn ${isOut ? 'btn--primary' : 'btn--ghost'}" data-mode="OUT">
             <span class="icon icon--sm">logout</span> KELUAR (OUT)
           </button>
-          <button class="btn btn--sm scan-mode-btn ${scanMode === 'IN' ? 'btn--primary' : 'btn--ghost'}" data-mode="IN"
-            style="${scanMode === 'IN' ? '' : 'color:var(--color-ink-secondary)'}">
+          <button class="btn btn--sm scan-mode-btn ${isIn ? 'btn--primary' : 'btn--ghost'}" data-mode="IN">
             <span class="icon icon--sm">login</span> MASUK (IN)
+          </button>
+          <button class="btn btn--sm scan-mode-btn ${isAudit ? 'btn--primary' : 'btn--ghost'}" data-mode="AUDIT">
+            <span class="icon icon--sm">manage_search</span> AUDIT (CEK)
           </button>
         </div>
 
-        <!-- Scan input card -->
+        <!-- Scan input card with Drag-and-Drop dropzone -->
         <div style="
           background:var(--color-paper-1);
-          border:2px solid ${scanMode === 'OUT' ? 'var(--color-status-out)' : 'var(--color-status-ok)'};
+          border:2px solid ${modeColor};
           border-radius:var(--radius-xl);
           padding:var(--space-8);
           text-align:center;
           margin-bottom:var(--space-6);
-          transition:border-color 0.2s;
+          box-shadow:0 8px 32px rgba(0,0,0,0.25);
+          transition:border-color 0.2s, background-color 0.2s;
+          position:relative;
         " id="scan-card">
 
-          <div class="icon" style="font-size:64px;color:${scanMode === 'OUT' ? 'var(--color-status-out)' : 'var(--color-status-ok)'};margin-bottom:var(--space-4);display:block" id="scan-mode-icon">
-            ${scanMode === 'OUT' ? 'qr_code_scanner' : 'add_circle'}
+          <div class="icon" style="font-size:56px;color:${modeColor};margin-bottom:var(--space-3);display:block" id="scan-mode-icon">
+            ${modeIcon}
           </div>
 
-          <div style="font-size:var(--text-2xl);font-weight:700;margin-bottom:var(--space-2);color:${scanMode === 'OUT' ? 'var(--color-status-out)' : 'var(--color-status-ok)'}">
-            ${scanMode === 'OUT' ? 'MODE KELUAR' : 'MODE MASUK'}
+          <div style="font-size:var(--text-2xl);font-weight:700;margin-bottom:var(--space-2);color:${modeColor}">
+            ${modeTitle}
           </div>
           <div style="font-size:var(--text-sm);color:var(--color-ink-muted);margin-bottom:var(--space-6)">
-            Arahkan scanner ke QR Code atau ketik manual di bawah
+            ${isAudit ? 'Scan atau drag & drop gambar QR untuk melihat info stok' : 'Scan barcode fisik, drag & drop gambar, paste (Ctrl+V), atau ketik QR ID'}
           </div>
 
-          <!-- Hidden input untuk HID -->
+          <!-- Hidden input untuk HID scanner -->
           <input type="text" id="scan-input-hid" aria-label="Scan input"
             style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"
             autocomplete="off" tabindex="-1">
 
           <!-- Manual input -->
-          <div style="display:flex;gap:var(--space-3);max-width:400px;margin:0 auto">
+          <div style="display:flex;gap:var(--space-3);max-width:440px;margin:0 auto">
             <input type="text" class="form-input form-input--mono" id="scan-input-manual"
-              placeholder="Ketik QR ID atau Serial Number..."
-              autocomplete="off" style="flex:1;font-size:var(--text-md)">
-            <button class="btn btn--primary" id="btn-scan-manual" style="min-width:80px">
+              placeholder="Scan barcode atau ketik QR ID..."
+              autocomplete="off" spellcheck="false" style="flex:1;font-size:var(--text-md);height:44px">
+            <button class="btn btn--primary" id="btn-scan-manual" style="min-width:90px;height:44px">
               <span class="icon icon--sm">send</span>
+              <span>Proses</span>
             </button>
           </div>
 
-          <!-- Qty input (untuk transaksi qty > 1) -->
-          <div style="display:flex;align-items:center;justify-content:center;gap:var(--space-3);margin-top:var(--space-4)">
-            <label style="font-size:var(--text-sm);color:var(--color-ink-muted)">Jumlah:</label>
-            <input type="number" class="form-input" id="scan-qty" value="1" min="1" max="9999"
-              style="width:80px;text-align:center">
-            <span style="font-size:var(--text-sm);color:var(--color-ink-muted)">unit</span>
+          ${!isAudit ? `
+            <!-- Quantity Presets -->
+            <div style="margin-top:var(--space-5);display:flex;flex-direction:column;align-items:center;gap:var(--space-2)">
+              <div style="display:flex;align-items:center;gap:var(--space-2)">
+                <span style="font-size:var(--text-xs);color:var(--color-ink-muted);font-weight:600;text-transform:uppercase">Jumlah:</span>
+                <button class="btn btn--ghost btn--sm qty-preset" data-qty="1">1</button>
+                <button class="btn btn--ghost btn--sm qty-preset" data-qty="5">5</button>
+                <button class="btn btn--ghost btn--sm qty-preset" data-qty="10">10</button>
+                <button class="btn btn--ghost btn--sm qty-preset" data-qty="25">25</button>
+                <button class="btn btn--ghost btn--sm qty-preset" data-qty="50">50</button>
+                <input type="number" class="form-input" id="scan-qty" value="1" min="1" max="9999"
+                  style="width:72px;text-align:center;height:32px;font-weight:600">
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Drop overlay hint -->
+          <div id="drop-overlay" style="
+            display:none;position:absolute;inset:0;background:var(--color-paper-base);
+            border:2px dashed var(--color-accent);border-radius:var(--radius-xl);
+            align-items:center;justify-content:center;flex-direction:column;gap:var(--space-2);
+            z-index:10;
+          ">
+            <span class="icon icon--2xl" style="color:var(--color-accent)">upload_file</span>
+            <div style="font-weight:700;font-size:var(--text-lg)">Lepaskan Gambar Di Sini</div>
+            <div style="font-size:var(--text-sm);color:var(--color-ink-muted)">Membaca QR / Barcode dari file...</div>
           </div>
 
         </div>
 
-        <!-- Last scan result -->
+        <!-- Last scan result card -->
         <div id="scan-result" hidden style="
           border-radius:var(--radius-xl);
           padding:var(--space-5);
@@ -139,8 +212,13 @@ function renderShell() {
 
       <!-- Right sidebar: scan history -->
       <div>
-        <div style="font-size:var(--text-xs);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--color-ink-muted);margin-bottom:var(--space-3)">
-          Riwayat Scan Terakhir
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-3)">
+          <span style="font-size:var(--text-xs);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--color-ink-muted)">
+            Riwayat Scan Terakhir
+          </span>
+          <button class="btn btn--ghost btn--xs" id="btn-undo-scan" title="Undo Transaksi Terakhir">
+            <span class="icon icon--xs">undo</span> Undo
+          </button>
         </div>
         <div id="scan-history-list" style="display:flex;flex-direction:column;gap:var(--space-2)">
           <div style="text-align:center;padding:var(--space-6);color:var(--color-ink-muted);font-size:var(--text-sm)">
@@ -159,9 +237,108 @@ function bindEvents(container) {
   container.querySelectorAll('.scan-mode-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       scanMode = btn.dataset.mode;
-      // Re-mount untuk update warna & icon
       mount(container);
     });
+  });
+
+  // Quantity presets
+  container.querySelectorAll('.qty-preset').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const qtyInput = container.querySelector('#scan-qty');
+      if (qtyInput) qtyInput.value = btn.dataset.qty;
+    });
+  });
+
+  // Camera toggle
+  container.querySelector('#btn-toggle-camera')?.addEventListener('click', () => {
+    if (isCameraActive) {
+      stopCamera();
+      isCameraActive = false;
+    } else {
+      startCamera(container);
+      isCameraActive = true;
+    }
+    const camBox = container.querySelector('#camera-container');
+    const btnText = container.querySelector('#btn-toggle-camera span:last-child');
+    const btnIcon = container.querySelector('#btn-toggle-camera .icon');
+    if (camBox) camBox.style.display = isCameraActive ? 'block' : 'none';
+    if (btnText) btnText.textContent = isCameraActive ? 'Tutup Kamera' : 'Buka Kamera';
+    if (btnIcon) btnIcon.textContent = isCameraActive ? 'videocam_off' : 'videocam';
+  });
+
+  // Image Upload Button & File Input
+  const fileInput = container.querySelector('#qr-file-input');
+  container.querySelector('#btn-upload-qr')?.addEventListener('click', () => {
+    if (fileInput) fileInput.click();
+  });
+
+  if (fileInput) {
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        await handleImageFile(file, container);
+        fileInput.value = '';
+      }
+    });
+  }
+
+  // Drag and drop onto scan card
+  const scanCard = container.querySelector('#scan-card');
+  const dropOverlay = container.querySelector('#drop-overlay');
+
+  if (scanCard) {
+    scanCard.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dropOverlay) dropOverlay.style.display = 'flex';
+    });
+
+    scanCard.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dropOverlay) dropOverlay.style.display = 'none';
+    });
+
+    scanCard.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dropOverlay) dropOverlay.style.display = 'none';
+      const file = e.dataTransfer?.files?.[0];
+      if (file && file.type.startsWith('image/')) {
+        await handleImageFile(file, container);
+      }
+    });
+  }
+
+  // Paste image handler (Ctrl+V)
+  const onPaste = async (e) => {
+    const items = e.clipboardData?.items || [];
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          await handleImageFile(file, container);
+          return;
+        }
+      }
+    }
+  };
+  document.addEventListener('paste', onPaste);
+
+  // Undo button
+  container.querySelector('#btn-undo-scan')?.addEventListener('click', async () => {
+    try {
+      const res = await window.api.undoLastTransaction();
+      if (res.success) {
+        beep('warning');
+        toast.info('Transaksi Dibatalkan', `Stok barang dikembalikan ke ${res.data.restoredQty}`);
+        loadRecentHistory(container);
+      } else {
+        toast.warning('Undo Gagal', res.error.message);
+      }
+    } catch (err) {
+      toast.error('Error', err.message);
+    }
   });
 
   // Manual input
@@ -179,22 +356,81 @@ function bindEvents(container) {
 
   // USB HID keyboard buffer listener
   setupHIDListener(container);
+
+  // Cleanup on unmount
+  const obs = new MutationObserver(() => {
+    if (!document.contains(container)) {
+      document.removeEventListener('paste', onPaste);
+      obs.disconnect();
+    }
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
 }
 
 function focusScanInput(container) {
-  // Focus ke hidden input supaya HID scanner langsung ter-capture
   const hidInput = container.querySelector('#scan-input-hid');
   if (hidInput) hidInput.focus();
 }
 
+// ─── IMAGE FILE DECODER ───────────────────────────────────────────────────────
+async function handleImageFile(file, container) {
+  toast.info('Memproses Gambar', `Membaca ${file.name || 'gambar'}...`, 2000);
+
+  try {
+    const bitmap = await createImageBitmap(file);
+
+    // 1. Try native BarcodeDetector API (Built-in Chromium / Electron)
+    if ('BarcodeDetector' in window) {
+      try {
+        const detector = new window.BarcodeDetector({
+          formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'data_matrix', 'upc_a']
+        });
+        const barcodes = await detector.detect(bitmap);
+        if (barcodes && barcodes.length > 0) {
+          const rawValue = barcodes[0].rawValue;
+          toast.success('QR Terdeteksi', `Kode: ${rawValue.slice(0, 30)}`);
+          await processCode(rawValue, container);
+          return;
+        }
+      } catch (err) {
+        console.warn('[Scanner] BarcodeDetector detect failed:', err);
+      }
+    }
+
+    // 2. Fallback: Render image into temporary canvas for user inspection
+    toast.warning('Scan Gambar', 'Pastikan gambar QR/Barcode memiliki kontras yang jelas dan tidak buram.');
+  } catch (err) {
+    toast.error('Gagal Membaca Gambar', err.message);
+  }
+}
+
+// ─── CAMERA SCANNER ───────────────────────────────────────────────────────────
+async function startCamera(container) {
+  try {
+    const video = container.querySelector('#camera-video');
+    if (!video) return;
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    video.srcObject = cameraStream;
+    await video.play();
+  } catch (err) {
+    toast.error('Kamera Gagal', 'Tidak dapat mengakses perangkat kamera: ' + err.message);
+    isCameraActive = false;
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+  isCameraActive = false;
+}
+
 // ─── HID LISTENER ─────────────────────────────────────────────────────────────
 function setupHIDListener(container) {
-  // USB barcode scanner mengirim karakter satu per satu dengan cepat,
-  // lalu mengakhiri dengan Enter (keyCode 13).
-  // Kita buffer semua input dan flush saat Enter atau timeout.
-
   const onKeyDown = (e) => {
-    // Skip jika sedang di input manual
     if (document.activeElement === container.querySelector('#scan-input-manual') ||
         document.activeElement === container.querySelector('#scan-qty')) return;
 
@@ -207,11 +443,9 @@ function setupHIDListener(container) {
       return;
     }
 
-    // Karakter printable
     if (e.key.length === 1) {
       hidBuffer += e.key;
       clearTimeout(hidTimer);
-      // Auto-flush setelah 80ms tanpa input baru (scanner terlalu lambat)
       hidTimer = setTimeout(() => {
         if (hidBuffer.length >= 3) {
           const value = hidBuffer.trim();
@@ -226,10 +460,10 @@ function setupHIDListener(container) {
 
   document.addEventListener('keydown', onKeyDown);
 
-  // Cleanup saat container di-unmount (route change)
   const obs = new MutationObserver(() => {
     if (!document.contains(container)) {
       document.removeEventListener('keydown', onKeyDown);
+      stopCamera();
       obs.disconnect();
     }
   });
@@ -245,11 +479,6 @@ async function processManualInput(container) {
   await processCode(value, container);
 }
 
-/**
- * Proses kode QR atau serial number
- * @param {string} code - QR ID (QR-2026-0001) atau serial number atau JSON payload
- * @param {HTMLElement} container
- */
 async function processCode(code, container) {
   if (isProcessing) return;
   isProcessing = true;
@@ -257,7 +486,6 @@ async function processCode(code, container) {
   const qty = parseInt(container.querySelector('#scan-qty')?.value || '1') || 1;
 
   try {
-    // Coba parse sebagai JSON payload (dari QR code yang di-scan)
     let qrId = null;
     let serialNumber = null;
 
@@ -266,20 +494,17 @@ async function processCode(code, container) {
         const payload = JSON.parse(code);
         qrId = payload.qrId || payload.id;
         serialNumber = payload.sn;
-      } catch (_) { /* bukan JSON valid */ }
+      } catch (_) {}
     }
 
     if (!qrId) {
-      // Cek apakah format QR ID (QR-YYYY-NNNN)
       if (/^QR-\d{4}-\d{4,}$/i.test(code)) {
         qrId = code.toUpperCase();
       } else {
-        // Treat sebagai serial number
         serialNumber = code;
       }
     }
 
-    // Lookup part
     let partRes;
     if (qrId) {
       partRes = await window.api.getPartByQrId(qrId);
@@ -296,7 +521,15 @@ async function processCode(code, container) {
 
     const part = partRes.data;
 
-    // Validasi stok untuk OUT
+    // Audit Mode: Just display details
+    if (scanMode === 'AUDIT') {
+      beep('success');
+      showScanResult(container, { success: true, part, isAudit: true });
+      addToHistory({ success: true, part, isAudit: true, timestamp: new Date() }, container);
+      return;
+    }
+
+    // OUT Validation
     if (scanMode === 'OUT' && part.currentQty < qty) {
       showScanResult(container, {
         success: false, part, code,
@@ -307,13 +540,13 @@ async function processCode(code, container) {
       return;
     }
 
-    // Buat transaksi
+    // Create Transaction
     const txRes = await window.api.createTransaction({
       partId: part.id,
       qrId: part.qrId,
       direction: scanMode,
       quantity: qty,
-      scanMethod: 'manual',
+      scanMethod: isCameraActive ? 'webcam' : 'hid',
     });
 
     if (!txRes.success) {
@@ -323,15 +556,14 @@ async function processCode(code, container) {
     }
 
     const newQty = scanMode === 'OUT' ? part.currentQty - qty : part.currentQty + qty;
-    beep('success');
+    beep(newQty <= part.minQty && newQty > 0 ? 'warning' : 'success');
     showScanResult(container, { success: true, part, qty, newQty, direction: scanMode });
     addToHistory({ success: true, part, qty, direction: scanMode, timestamp: new Date() }, container);
 
-    // Flash scan card
     const card = container.querySelector('#scan-card');
     if (card) {
-      card.style.animation = 'scanFlash 0.4s ease';
-      setTimeout(() => { card.style.animation = ''; }, 400);
+      card.style.animation = 'scanFlash 0.35s ease';
+      setTimeout(() => { card.style.animation = ''; }, 350);
     }
 
   } catch (err) {
@@ -352,10 +584,36 @@ function showScanResult(container, result) {
   el.hidden = false;
 
   if (result.success) {
-    const { part, qty, newQty, direction } = result;
+    const { part, qty, newQty, direction, isAudit } = result;
+
+    if (isAudit) {
+      el.style.cssText = `
+        border-radius:var(--radius-xl);
+        padding:var(--space-5);
+        margin-bottom:var(--space-5);
+        background:var(--color-paper-1);
+        border:1px solid var(--color-accent);
+        animation:slideUp 0.2s ease;
+      `;
+      el.innerHTML = `
+        <div style="display:flex;align-items:center;gap:var(--space-4)">
+          <span class="icon" style="font-size:36px;color:var(--color-accent)">manage_search</span>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:var(--text-lg)">${escHtml(part.description)}</div>
+            <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-ink-muted)">${escHtml(part.qrId)} · ${escHtml(part.category)}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:var(--text-xs);color:var(--color-ink-muted)">Stok Tersedia</div>
+            <div style="font-size:var(--text-2xl);font-weight:700;color:var(--color-accent)">${part.currentQty} <span style="font-size:var(--text-xs)">${escHtml(part.unit)}</span></div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
     const isOut = direction === 'OUT';
     const color = isOut ? 'var(--color-status-out)' : 'var(--color-status-ok)';
-    const bgColor = isOut ? 'oklch(30% 0.04 25 / 0.3)' : 'oklch(30% 0.05 145 / 0.3)';
+    const bgColor = isOut ? 'var(--color-status-out-dim)' : 'var(--color-status-ok-dim)';
 
     el.style.cssText = `
       border-radius:var(--radius-xl);
@@ -371,7 +629,7 @@ function showScanResult(container, result) {
         <span class="icon" style="font-size:40px;color:${color}">${isOut ? 'remove_circle' : 'add_circle'}</span>
         <div style="flex:1">
           <div style="font-weight:700;font-size:var(--text-lg)">${escHtml(part.description)}</div>
-          <div style="font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-ink-muted)">${escHtml(part.qrId)}</div>
+          <div style="font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-ink-muted)">${escHtml(part.qrId)} · ${escHtml(part.serialNumber)}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:var(--text-xs);color:var(--color-ink-muted)">${isOut ? '−' : '+'} ${qty} ${escHtml(part.unit)}</div>
@@ -385,7 +643,7 @@ function showScanResult(container, result) {
       border-radius:var(--radius-xl);
       padding:var(--space-5);
       margin-bottom:var(--space-5);
-      background:oklch(25% 0.04 25 / 0.3);
+      background:var(--color-status-out-dim);
       border:1px solid var(--color-status-out);
       animation:slideUp 0.2s ease;
     `;
@@ -424,7 +682,7 @@ async function loadRecentHistory(container) {
       }));
       renderHistory(container);
     }
-  } catch (_) { /* skip */ }
+  } catch (_) {}
 }
 
 function renderHistory(container) {
@@ -459,6 +717,24 @@ function renderHistory(container) {
       `;
     }
 
+    if (entry.isAudit) {
+      return `
+        <div style="
+          background:var(--color-paper-1);border:1px solid var(--color-paper-border);
+          border-radius:var(--radius-md);padding:var(--space-3);
+          display:flex;align-items:center;gap:var(--space-2);
+        ">
+          <span class="icon icon--sm" style="color:var(--color-accent)">manage_search</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:var(--text-sm);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              ${escHtml(entry.part?.description || '—')}
+            </div>
+            <div style="font-size:var(--text-xs);color:var(--color-ink-muted)">${formatTime(entry.timestamp)} · Cek Data</div>
+          </div>
+        </div>
+      `;
+    }
+
     const isOut = entry.direction === 'OUT';
     const color = isOut ? 'var(--color-status-out)' : 'var(--color-status-ok)';
 
@@ -483,22 +759,6 @@ function renderHistory(container) {
     `;
   }).join('');
 }
-
-// ─── CSS FLASH ANIMATION ──────────────────────────────────────────────────────
-// Inject ke <style> jika belum ada
-(function injectScanFlash() {
-  if (document.querySelector('#scan-flash-style')) return;
-  const style = document.createElement('style');
-  style.id = 'scan-flash-style';
-  style.textContent = `
-    @keyframes scanFlash {
-      0%, 100% { transform: scale(1); }
-      30% { transform: scale(1.01); }
-      60% { transform: scale(0.99); }
-    }
-  `;
-  document.head.appendChild(style);
-})();
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function formatTime(date) {

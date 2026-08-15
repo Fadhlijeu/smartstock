@@ -116,14 +116,20 @@
 
       <!-- Topbar -->
       <header id="topbar">
-        <span class="topbar-title">Dashboard</span>
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <span class="topbar-title">Dashboard</span>
+          <span id="topbar-clock" style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-ink-muted);background:var(--color-paper-2);padding:2px 8px;border-radius:var(--radius-sm);border:1px solid var(--color-paper-border)">--:--:--</span>
+        </div>
         <div class="topbar-actions">
+          <button class="btn btn--ghost btn--icon" id="btn-theme-toggle" aria-label="Toggle Tema" title="Ganti Tema (Dark / Light)">
+            <span class="icon" id="theme-toggle-icon">light_mode</span>
+          </button>
           <button class="btn btn--ghost btn--icon" id="btn-keyboard-shortcuts" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)">
             <span class="icon">keyboard</span>
           </button>
           <button class="btn btn--primary btn--sm" id="btn-quick-add" aria-label="Tambah barang baru (Ctrl+N)">
             <span class="icon icon--sm">add</span>
-            <span>Tambah</span>
+            <span>Tambah Barang</span>
           </button>
         </div>
       </header>
@@ -148,19 +154,6 @@
 
   <!-- ─── APP SCRIPTS ────────────────────────────────────────── -->
   <script type="module" src="js/app.js"></script>
-
-  <!-- Topbar quick actions (non-module) -->
-  <script>
-    // Keyboard shortcuts button
-    document.getElementById('btn-keyboard-shortcuts')?.addEventListener('click', () => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }));
-    });
-
-    // Quick add
-    document.getElementById('btn-quick-add')?.addEventListener('click', () => {
-      window.location.hash = '#parts';
-    });
-  </script>
 
 </body>
 </html>

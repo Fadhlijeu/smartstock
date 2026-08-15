@@ -34,7 +34,16 @@ function rowToTransaction(row) {
   };
 }
 
+function normalizeScanMethod(method) {
+  if (!method) return 'manual';
+  const m = String(method).toLowerCase();
+  if (m === 'usb_hid' || m === 'hid' || m === 'barcode_scanner' || m === 'scanner') return 'hid';
+  if (m === 'webcam' || m === 'camera' || m === 'video') return 'webcam';
+  return 'manual';
+}
+
 function getTransactions(filters = {}) {
+
   try {
     const db = getDb();
     const {
@@ -132,7 +141,7 @@ function createTransaction(data) {
         quantity,
         qtyBefore,
         qtyAfter,
-        data.scanMethod || 'manual',
+        normalizeScanMethod(data.scanMethod),
         data.operator || null,
         data.note || null,
         timestamp,

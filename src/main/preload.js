@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('api', {
   createPart: (data) => ipcRenderer.invoke('parts:create', data),
   updatePart: (id, data) => ipcRenderer.invoke('parts:update', id, data),
   deletePart: (id) => ipcRenderer.invoke('parts:delete', id),
+  deletePartsBatch: (ids) => ipcRenderer.invoke('parts:deleteBatch', ids),
   getKpiStats: () => ipcRenderer.invoke('parts:kpiStats'),
 
   // ── Settings ───────────────────────────────────────────────────────────────
@@ -47,6 +48,8 @@ contextBridge.exposeInMainWorld('api', {
   // ── App ────────────────────────────────────────────────────────────────────
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
   openDataDir: () => ipcRenderer.invoke('app:openDataDir'),
+  seedDemoData: () => ipcRenderer.invoke('data:seedDemo'),
+
 
   // ── QR Code ────────────────────────────────────────────────────────────────
   qrGenerateForPart: (partId) => ipcRenderer.invoke('qr:generateForPart', partId),

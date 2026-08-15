@@ -14,22 +14,78 @@ async function init() {
   await loadSettings();
 
   // 2. Apply theme
-  applyTheme(state.get('settings')['app.theme'] || 'dark');
+  const initialTheme = (state.get('settings') && state.get('settings')['app.theme']) || 'dark';
+  applyTheme(initialTheme);
 
-  // 3. Setup sidebar
+  // 3. Setup live clock
+  setupLiveClock();
+
+  // 4. Setup theme toggle
+  setupThemeToggle();
+
+  // 5. Setup sidebar
   setupSidebar();
 
-  // 4. Setup keyboard shortcuts
+  // 6. Setup topbar quick actions
+  setupTopbarActions();
+
+  // 7. Setup keyboard shortcuts
   setupKeyboardShortcuts();
 
-  // 5. Setup real-time events dari main process
+  // 8. Setup real-time events dari main process
   setupRealtimeEvents();
 
-  // 6. Init router (render halaman pertama)
+  // 9. Init router (render halaman pertama)
   initRouter();
 
-  // 7. Load KPI untuk sidebar badge
+  // 10. Load KPI untuk sidebar badge
   refreshSidebarBadges();
+}
+
+function setupTopbarActions() {
+  document.getElementById('btn-quick-add')?.addEventListener('click', async () => {
+    try {
+      const { openPartForm } = await import('./views/parts.js');
+      openPartForm();
+    } catch (err) {
+      console.error('[Topbar] Failed to open part form:', err);
+    }
+  });
+
+  document.getElementById('btn-keyboard-shortcuts')?.addEventListener('click', () => {
+    showShortcutsHelp();
+  });
+}
+
+
+function setupLiveClock() {
+  const clockEl = document.getElementById('topbar-clock');
+  if (!clockEl) return;
+  const update = () => {
+    const now = new Date();
+    clockEl.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+  update();
+  setInterval(update, 1000);
+}
+
+function setupThemeToggle() {
+  const btn = document.getElementById('btn-theme-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    window.api?.updateSettings?.({ 'app.theme': next });
+  });
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const icon = document.getElementById('theme-toggle-icon');
+  if (icon) {
+    icon.textContent = theme === 'dark' ? 'light_mode' : 'dark_mode';
+  }
 }
 
 // ─── SETTINGS ────────────────────────────────────────────────────
@@ -37,7 +93,7 @@ async function init() {
 async function loadSettings() {
   try {
     const res = await window.api.getSettings();
-    if (res.success) {
+    if (res?.success && res.data) {
       state.setSilent('settings', res.data);
 
       // Restore sidebar state
@@ -52,9 +108,7 @@ async function loadSettings() {
   }
 }
 
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-}
+
 
 // ─── SIDEBAR ─────────────────────────────────────────────────────
 

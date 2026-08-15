@@ -6,7 +6,7 @@
 import { state } from './state.js';
 
 /** @type {Record<string, () => Promise<{mount: Function, unmount?: Function}>>} */
-const ROUTES = {
+export const ROUTES = {
   '#dashboard':  () => import('./views/dashboard.js'),
   '#scanner':    () => import('./views/scanner.js'),
   '#parts':      () => import('./views/parts.js'),
@@ -15,7 +15,8 @@ const ROUTES = {
   '#settings':   () => import('./views/settings.js'),
 };
 
-const DEFAULT_ROUTE = '#dashboard';
+export const DEFAULT_ROUTE = '#dashboard';
+
 
 let currentUnmount = null;
 let currentHash = null;

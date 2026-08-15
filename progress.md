@@ -424,10 +424,78 @@ Setelah membaca semua source code, ditemukan:
 - `src/renderer/js/views/reports.js` — Fix disabled button
 - `src/renderer/js/views/history.js` — Fix default filter
 
-#### Open Questions / Next Steps
+### SESSION 008 — 2026-08-15
 
-- [ ] **M5: Polish/Export** — PDF labels via pdfkit, packaging electron-builder
-- [ ] **UI Polish** — shadcn consistency di Scanner & Settings views
-- [ ] **Image upload** — Part image upload (belum diimplementasi)
-- [ ] **PR ke main** — Merge fix/bugs-p1-p2 dan feat/m4-grid-monitor
+**Agent**: Antigravity (Google DeepMind)
+**Task**: REMAKE UI & Interactive Polish + 100% Automated Test Suite Covering Database, Repositories, Sequences, QR Generation, CSV Import, Excel Export, IPC Handlers, and UI Simulation
+
+#### Actions Taken
+1. ✅ **Automated Test Infrastructure**:
+   - Configured `npm test` running cross-platform `tests/runner.js` with Electron runtime (`ELECTRON_RUN_AS_NODE=1`) to seamlessly load native `better-sqlite3`.
+   - Created isolated SQLite memory/temp test database generator `tests/helpers/test-db.js`.
+2. ✅ **Complete Test Suite (76 passing tests)**:
+   - `tests/unit/db.test.js`: Schema verification, WAL mode, pragmas, and migration tables.
+   - `tests/unit/parts.repository.test.js`: CRUD, filters, sorting, KPI metrics, soft deletion, duplicate checks, seed demo.
+   - `tests/unit/transactions.repository.test.js`: IN/OUT transactions, stock overdraft prevention, transaction logging, undo operations.
+   - `tests/unit/sequence.manager.test.js`: QR-YYYY-NNNN format, category prefixes (`FAST`, `BEAR`, `SEAL`, etc.), incremental serials.
+   - `tests/unit/qr.generator.test.js`: Schema v1 payload, MD5 hash, base64 PNG dataUrl, SVG XML.
+   - `tests/unit/csv.service.test.js`: Template, header aliases, validation rules, category classification, homogen merge, batch insert.
+   - `tests/unit/export.service.test.js`: ExcelJS workbook generation for stock snapshot, transaction log, and low stock alert.
+   - `tests/unit/settings.repository.test.js`: Key-value storage and bulk updates.
+   - `tests/integration/ipc-handlers.test.js`: IPC channel registration and request-response verification.
+   - `tests/ui/ui-logic-and-components.test.js`: Pub/Sub state management, router navigation, part form validation.
+   - `tests/ui/views-and-buttons.test.js`: Audio synthesis, KPI filtering, auto category suggest, theme switcher, toast notifications.
+   - `tests/e2e/e2e-workflow.test.js`: Full lifecycle (create, CSV import, IN/OUT scans, overdraft prevention, restock, Excel export, settings persistence).
+3. ✅ **UI/UX Remake & Polish**:
+   - **Topbar**: Live real-time clock, quick Dark/Light theme toggle with live icon indicator, search focus shortcut, quick Add Part button.
+   - **Dashboard**: Interactive clickable KPI cards with immediate grid filtering, smooth scan bar, IN/OUT toggle with sound & flash animation, card context menu, and multi-view modes (Grid / Compact / List).
+   - **Scanner View**: Terminal industrial UI, WebRTC camera scanner option with overlay target box, rapid USB HID scanner buffer listener, manual input, quick quantity preset chips (+1, +5, +10, +25, +50), sound volume test, and live transaction log with one-click **Undo**.
+   - **Manajemen Barang**: Rich inventory table with column sorting, live search filter, category dropdown, real-time category detection suggestion as user types description, QR preview modal, and toolbar button "Sample Data".
+   - **Riwayat Transaksi**: Audit trail with direction pills (Semua, IN, OUT), date picker, search bar, summary statistics cards, stock before/after, operator, and one-click Excel export.
+   - **Laporan & Export**: Clean cards for Stock Snapshot (.xlsx), Transaction Log (.xlsx), Low Stock Alert (.xlsx), and Printable QR Labels Sheet modal with direct print dialog.
+   - **Pengaturan**: Dark/Light mode switcher with instant live preview, sound beep test button, volume slider, default min qty reorder threshold, database folder opener, and "Generate Sample Warehouse Data" button.
+
+#### Test Results Summary
+```
+======================================================
+🚀 SAP StockMon Automated Test Suite
+   Running 12 test suites with Electron runtime
+======================================================
+✔ E2E Warehouse Lifecycle: Add, Import, Scan, Audit & Export (7 tests passed)
+✔ IPC Handlers: Channel Registry & Execution (6 tests passed)
+✔ UI Logic & State Management (3 tests passed)
+✔ UI Views & Buttons Interaction Harness (5 tests passed)
+✔ CSV Service: Parser, Validation, Auto-Classify & Batch Insert (5 tests passed)
+✔ Database: schema initialization & migrations (4 tests passed)
+✔ Export Service: Excel (.xlsx) Workbooks (4 tests passed)
+✔ Parts Repository: CRUD & Queries (10 tests passed)
+✔ QR Generator: Payload & Image Generation (5 tests passed)
+✔ Sequence Manager: QR ID & Serial Number Sequences (5 tests passed)
+✔ Settings Repository: Key-Value Config & Persistence (3 tests passed)
+✔ Transactions Repository: IN/OUT & Stock Integrity (7 tests passed)
+
+ℹ tests 76
+ℹ suites 0
+ℹ pass 76
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+```
+
+#### Session 009: Scanner Image Upload & Multiple Product Deletion
+- **Scanner Image Upload Support (`src/renderer/js/views/scanner.js`)**:
+  - Tombol **Upload Gambar** (`#btn-upload-qr`) untuk memilih file gambar (PNG/JPG).
+  - Drag-and-Drop file gambar langsung ke kartu scanner (`#scan-card`) dengan overlay visual interaktif.
+  - Paste gambar langsung dari clipboard (`Ctrl+V`) di mana saja pada layar scanner.
+  - Dekoder berbasis Chromium native `BarcodeDetector` API untuk mengekstrak barcode/QR secara cepat dan otomatis memproses scan (OUT / IN / AUDIT) dengan feedback suara.
+- **Multiple Product Deletion (`src/renderer/js/views/parts.js` & `parts.repository.js`)**:
+  - Checkbox multi-select di header tabel (Pilih Semua filtered parts) dan di setiap baris.
+  - Floating Action Bar yang muncul dinamis menampilkan jumlah barang terpilih, tombol *Batal Pilih*, dan tombol *Hapus Terpilih* (`btn--danger`).
+  - Modal dialog konfirmasi batch delete dengan proteksi soft-delete.
+  - Backend SQLite atomic transaction batch delete (`deletePartsBatch`), IPC handler `parts:deleteBatch`, dan preload exposure `window.api.deletePartsBatch`.
+- **Test Suite**: 78/78 automated unit, integration, and E2E tests lulus 100%.
+
+
+
 

@@ -6,6 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
+    "test": "node tests/run.js",
+
     "rebuild": "electron-rebuild",
     "postinstall": "electron-rebuild",
     "build": "electron-builder build --win",

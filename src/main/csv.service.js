@@ -186,6 +186,21 @@ function mergeExactHomogenRows(rows) {
   return [...merged.values()];
 }
 
+function normalizeDate(raw) {
+  if (!raw) return '';
+  const s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(s)) return s.replace(/\//g, '-');
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) {
+    const day = m[1].padStart(2, '0');
+    const month = m[2].padStart(2, '0');
+    const year = m[3];
+    return `${year}-${month}-${day}`;
+  }
+  return s;
+}
+
 function parseCSV(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const filtered = content
@@ -204,6 +219,9 @@ function parseCSV(filePath) {
       skip_empty_lines: true,
       trim: true,
       bom: true,
+      relax_quotes: true,
+      relax_column_count: true,
+      delimiter: [',', ';', '\t'],
     });
   } catch (err) {
     throw new Error(`Format CSV tidak valid: ${err.message}`);
@@ -232,9 +250,11 @@ function parseCSV(filePath) {
       rowErrors.push(`Min Qty harus angka positif (dapat: '${record.min_qty || ''}')`);
     }
 
-    if (record.date_entry && !/^\d{4}-\d{2}-\d{2}$/.test(record.date_entry.trim())) {
-      rowErrors.push(`Date harus format YYYY-MM-DD (dapat: '${record.date_entry}')`);
+    const normalizedDate = normalizeDate(record.date_entry);
+    if (record.date_entry && !/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+      rowErrors.push(`Date harus format YYYY-MM-DD atau DD-MM-YYYY (dapat: '${record.date_entry}')`);
     }
+
 
     const unit = (record.unit || 'pcs').toLowerCase().trim();
     const sn = (record.serial_number || '').trim();
@@ -250,7 +270,7 @@ function parseCSV(filePath) {
 
     const classification = classifyPart(record.description, record.category);
     rows.push({
-      dateEntry: record.date_entry.trim(),
+      dateEntry: normalizedDate || record.date_entry.trim(),
       mrInvoice: record.mr_invoice.trim(),
       purchaseOrder: record.purchase_order.trim(),
       serialNumber: sn,

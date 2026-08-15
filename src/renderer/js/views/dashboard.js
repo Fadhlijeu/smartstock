@@ -159,26 +159,29 @@ function renderDashboard(kpis) {
 
 function renderKpiWidgets(kpis) {
   return `
-    ${renderKpiWidget('inventory_2', kpis.totalSku.toLocaleString('id'), 'Total SKU', '')}
-    ${renderKpiWidget('warehouse', kpis.totalItems.toLocaleString('id'), 'Total Items', '')}
-    ${renderKpiWidget('login', '+' + kpis.inToday.toLocaleString('id'), 'IN Hari Ini', 'ok')}
-    ${renderKpiWidget('logout', kpis.outToday.toLocaleString('id'), 'OUT Hari Ini', '')}
-    ${kpis.outCount > 0 ? renderKpiWidget('cancel', kpis.outCount, 'Stok Habis', 'danger') : ''}
-    ${kpis.lowCount > 0 ? renderKpiWidget('warning', kpis.lowCount, 'Stok Rendah', 'warning') : ''}
-    ${kpis.reviewCount > 0 ? renderKpiWidget('rate_review', kpis.reviewCount, 'Perlu Review', 'warning') : ''}
+    ${renderKpiWidget('inventory_2', kpis.totalSku.toLocaleString('id'), 'Total SKU', '', '')}
+    ${renderKpiWidget('warehouse', kpis.totalItems.toLocaleString('id'), 'Total Items', '', '')}
+    ${renderKpiWidget('login', '+' + kpis.inToday.toLocaleString('id'), 'IN Hari Ini', 'ok', '')}
+    ${renderKpiWidget('logout', kpis.outToday.toLocaleString('id'), 'OUT Hari Ini', '', '')}
+    ${kpis.outCount > 0 ? renderKpiWidget('cancel', kpis.outCount, 'Stok Habis', 'danger', 'OUT') : ''}
+    ${kpis.lowCount > 0 ? renderKpiWidget('warning', kpis.lowCount, 'Stok Rendah', 'warning', 'LOW') : ''}
+    ${kpis.reviewCount > 0 ? renderKpiWidget('rate_review', kpis.reviewCount, 'Perlu Review', 'warning', 'REVIEW') : ''}
   `;
 }
 
-function renderKpiWidget(icon, number, label, variant) {
+function renderKpiWidget(icon, number, label, variant, filterStatus = '') {
   const variantClass = variant ? `kpi-widget--${variant}` : '';
+  const isSelected = filterStatus && _filters.status === filterStatus;
+  const activeClass = isSelected ? ' kpi-widget--active' : '';
   return `
-    <div class="kpi-widget ${variantClass}">
+    <div class="kpi-widget ${variantClass}${activeClass}" ${filterStatus ? `data-filter-status="${filterStatus}" role="button" tabindex="0" title="Klik untuk filter ${label}" style="cursor:pointer"` : ''}>
       <span class="icon icon--lg icon--muted" aria-hidden="true">${icon}</span>
       <div class="kpi-widget__number">${number}</div>
       <div class="kpi-widget__label">${label}</div>
     </div>
   `;
 }
+
 
 function renderStatusPill(value, label) {
   const active = _filters.status === value;
@@ -468,6 +471,16 @@ function bindEvents(container) {
     _filters.status = pill.dataset.status;
     renderGrid(container);
   });
+
+  // KPI Widget click → Filter status
+  container.querySelector('#kpi-strip')?.addEventListener('click', (e) => {
+    const kpiEl = e.target.closest('.kpi-widget[data-filter-status]');
+    if (!kpiEl) return;
+    const targetStatus = kpiEl.dataset.filterStatus;
+    _filters.status = _filters.status === targetStatus ? '' : targetStatus;
+    renderGrid(container);
+  });
+
 
   // Category filter
   container.querySelector('#category-filter')?.addEventListener('change', (e) => {

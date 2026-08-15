@@ -1,20 +1,28 @@
 /**
- * parts.js — Manajemen Barang View (M1 Full Implementation)
- * Fitur: Tabel barang, form tambah, form edit, hapus, import CSV
+ * parts.js — Manajemen Barang View (With Multi-Select & Batch Deletion)
+ * Fitur:
+ * - Multi-select checkbox (Pilih semua, pilih per baris)
+ * - Batch delete multiple items sekaligus dengan konfirmasi modal
+ * - Tabel barang dengan sorting & live filtering
+ * - Form tambah barang & form edit
+ * - QR preview modal
+ * - Import CSV flow
  */
 
 import { toast } from '../components/toast.js';
 import { openModal, closeModal, confirmDialog } from '../components/modal.js';
-import { renderPartForm, submitPartForm } from '../components/part-form.js';
+import { renderPartForm, submitPartForm, attachCategorySuggest } from '../components/part-form.js';
 import { openImportCSVFlow } from '../components/import-csv.js';
 import { openQRModal } from '../components/qr-modal.js';
 
 let allParts = [];
 let filteredParts = [];
+let selectedPartIds = new Set();
 let currentSort = { col: 'created_at', dir: 'DESC' };
 let searchDebounce = null;
 
 export async function mount(container) {
+  selectedPartIds.clear();
   container.innerHTML = renderShell();
   await loadAndRender(container);
   bindEvents(container);
@@ -28,6 +36,9 @@ function renderShell() {
     <div class="section-header">
       <h2 class="section-title">Manajemen Barang</h2>
       <div style="display:flex;gap:var(--space-2);align-items:center">
+        <button class="btn btn--ghost btn--sm" id="btn-seed-demo-parts" title="Isi data sampel gudang">
+          <span class="icon icon--sm">dataset</span> Sample Data
+        </button>
         <button class="btn btn--ghost btn--sm" id="btn-download-template" title="Download template CSV">
           <span class="icon icon--sm">download</span> Template
         </button>
@@ -37,6 +48,31 @@ function renderShell() {
         <div class="divider--vertical" style="height:24px"></div>
         <button class="btn btn--primary btn--sm" id="btn-add-part">
           <span class="icon icon--sm">add</span> Tambah Barang
+        </button>
+      </div>
+    </div>
+
+    <!-- Batch Action Floating Bar -->
+    <div id="batch-action-bar" style="
+      display:none;
+      background:var(--color-paper-2);
+      border:1px solid var(--color-accent);
+      border-radius:var(--radius-lg);
+      padding:var(--space-3) var(--space-4);
+      margin-bottom:var(--space-4);
+      align-items:center;
+      justify-content:space-between;
+      box-shadow:0 4px 16px rgba(0,0,0,0.2);
+      animation:slideUp 0.15s ease;
+    ">
+      <div style="display:flex;align-items:center;gap:var(--space-3)">
+        <span class="icon" style="color:var(--color-accent)">checklist</span>
+        <span id="batch-selected-count" style="font-weight:600;font-size:var(--text-sm)">0 barang dipilih</span>
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn--ghost btn--sm" id="btn-batch-deselect">Batal Pilih</button>
+        <button class="btn btn--danger btn--sm" id="btn-batch-delete">
+          <span class="icon icon--sm">delete</span> Hapus Terpilih
         </button>
       </div>
     </div>
@@ -86,10 +122,16 @@ async function loadAndRender(container) {
     allParts = res.data;
     filteredParts = [...allParts];
 
-    // Populate category filter
+    // Clean up selected IDs that no longer exist
+    const currentIdSet = new Set(allParts.map((p) => p.id));
+    for (const id of selectedPartIds) {
+      if (!currentIdSet.has(id)) selectedPartIds.delete(id);
+    }
+
     populateCategoryFilter(container);
     renderTable(container);
     updateCount(container);
+    updateBatchActionBar(container);
   } catch (err) {
     showTableError(container, err.message);
   }
@@ -98,11 +140,14 @@ async function loadAndRender(container) {
 function populateCategoryFilter(container) {
   const sel = container.querySelector('#filter-category');
   if (!sel) return;
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">Semua Kategori</option>';
   const cats = [...new Set(allParts.map((p) => p.category).filter(Boolean))].sort();
   cats.forEach((cat) => {
     const opt = document.createElement('option');
     opt.value = cat;
     opt.textContent = cat;
+    if (cat === currentVal) opt.selected = true;
     sel.appendChild(opt);
   });
 }
@@ -142,11 +187,17 @@ function renderTable(container) {
       : '<span class="icon icon--xs">arrow_downward</span>';
   };
 
+  const isAllSelected = filteredParts.length > 0 && filteredParts.every((p) => selectedPartIds.has(p.id));
+
   tableContainer.innerHTML = `
     <div style="overflow-x:auto">
       <table class="data-table" id="parts-table" style="min-width:900px">
         <thead>
           <tr>
+            <th style="width:40px;text-align:center;padding:0 var(--space-2)">
+              <input type="checkbox" id="chk-select-all" ${isAllSelected ? 'checked' : ''}
+                title="Pilih Semua (${filteredParts.length} barang)" style="cursor:pointer;width:16px;height:16px">
+            </th>
             <th data-sort="description" style="min-width:200px">
               Deskripsi ${sortIcon('description')}
             </th>
@@ -174,9 +225,14 @@ function renderTable(container) {
 function renderRow(part) {
   const status = part.status || 'OK';
   const statusClass = status.toLowerCase();
+  const isSelected = selectedPartIds.has(part.id);
 
   return `
-    <tr data-part-id="${part.id}">
+    <tr data-part-id="${part.id}" style="${isSelected ? 'background:rgba(59,130,246,0.09)' : ''}">
+      <td style="text-align:center;padding:0 var(--space-2)" class="chk-cell">
+        <input type="checkbox" class="chk-part-row" data-part-id="${part.id}"
+          ${isSelected ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px">
+      </td>
       <td>
         <div style="font-weight:500;line-height:1.3">${escHtml(part.description)}</div>
         <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-ink-muted)">${escHtml(part.qrId)}</div>
@@ -218,6 +274,20 @@ function updateCount(container) {
   if (el) el.textContent = `${filteredParts.length.toLocaleString('id')} barang`;
 }
 
+function updateBatchActionBar(container) {
+  const bar = container.querySelector('#batch-action-bar');
+  const countEl = container.querySelector('#batch-selected-count');
+  if (!bar) return;
+
+  const count = selectedPartIds.size;
+  if (count > 0) {
+    bar.style.display = 'flex';
+    if (countEl) countEl.textContent = `${count} barang dipilih`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
 function showTableError(container, msg) {
   const tc = container.querySelector('#parts-table-container');
   if (tc) tc.innerHTML = `
@@ -236,6 +306,17 @@ function bindEvents(container) {
   const bindAdd = (btn) => btn?.addEventListener('click', () => openPartForm(null, container));
   bindAdd(container.querySelector('#btn-add-part'));
 
+  // Seed sample demo data
+  container.querySelector('#btn-seed-demo-parts')?.addEventListener('click', async () => {
+    const res = await window.api.seedDemoData();
+    if (res.success) {
+      toast.success('Data Sampel Ditambahkan', `${res.data.createdCount} barang sampel gudang berhasil ditambahkan`);
+      await loadAndRender(container);
+    } else {
+      toast.error('Gagal', res.error.message);
+    }
+  });
+
   // Import CSV
   container.querySelector('#btn-import-csv')?.addEventListener('click', async () => {
     await openImportCSVFlow(async () => {
@@ -252,17 +333,63 @@ function bindEvents(container) {
   });
 
   // Search
-  container.querySelector('#parts-search')?.addEventListener('input', (e) => {
+  container.querySelector('#parts-search')?.addEventListener('input', () => {
     clearTimeout(searchDebounce);
-    searchDebounce = setTimeout(() => applyFilters(container), 280);
+    searchDebounce = setTimeout(() => applyFilters(container), 250);
   });
 
   // Filters
   container.querySelector('#filter-status')?.addEventListener('change', () => applyFilters(container));
   container.querySelector('#filter-category')?.addEventListener('change', () => applyFilters(container));
 
-  // Table sort + edit + delete (event delegation)
+  // Batch deselect
+  container.querySelector('#btn-batch-deselect')?.addEventListener('click', () => {
+    selectedPartIds.clear();
+    renderTable(container);
+    updateBatchActionBar(container);
+  });
+
+  // Batch delete
+  container.querySelector('#btn-batch-delete')?.addEventListener('click', async () => {
+    await handleBatchDelete(container);
+  });
+
+  // Change event for checkboxes (Select All & Row Checkboxes)
+  container.addEventListener('change', (e) => {
+    // Select All
+    if (e.target.id === 'chk-select-all') {
+      const checked = e.target.checked;
+      if (checked) {
+        filteredParts.forEach((p) => selectedPartIds.add(p.id));
+      } else {
+        filteredParts.forEach((p) => selectedPartIds.delete(p.id));
+      }
+      renderTable(container);
+      updateBatchActionBar(container);
+      return;
+    }
+
+    // Single Row Checkbox
+    if (e.target.classList.contains('chk-part-row')) {
+      const partId = e.target.dataset.partId;
+      if (e.target.checked) {
+        selectedPartIds.add(partId);
+      } else {
+        selectedPartIds.delete(partId);
+      }
+      renderTable(container);
+      updateBatchActionBar(container);
+      return;
+    }
+  });
+
+  // Table clicks (sort, QR, edit, delete, row click)
   container.addEventListener('click', (e) => {
+    // Don't trigger row detail when clicking checkboxes or their wrapper
+    if (e.target.closest('.chk-cell') || e.target.classList.contains('chk-part-row')) {
+      return;
+    }
+
     // Sort
     const th = e.target.closest('th[data-sort]');
     if (th) {
@@ -293,7 +420,7 @@ function bindEvents(container) {
       return;
     }
 
-    // Delete
+    // Delete single
     const delBtn = e.target.closest('.btn-delete-part');
     if (delBtn) {
       handleDelete(delBtn.dataset.partId, container);
@@ -306,9 +433,9 @@ function bindEvents(container) {
       openImportCSVFlow(async () => { await loadAndRender(container); });
     }
 
-    // Row click → detail (kecuali kena tombol)
+    // Row click → detail (kecuali tombol & checkbox)
     const row = e.target.closest('tr[data-part-id]');
-    if (row && !e.target.closest('button')) {
+    if (row && !e.target.closest('button') && !e.target.closest('input')) {
       openPartDetail(row.dataset.partId);
     }
   });
@@ -332,6 +459,7 @@ function applyFilters(container) {
   sortFiltered();
   renderTable(container);
   updateCount(container);
+  updateBatchActionBar(container);
 }
 
 function sortFiltered() {
@@ -354,7 +482,7 @@ function sortFiltered() {
 
 // ─── FORM MODAL ───────────────────────────────────────────────────────────────
 
-async function openPartForm(partId, container) {
+export async function openPartForm(partId = null, container = null) {
   const isEdit = !!partId;
   let part = null;
 
@@ -387,14 +515,27 @@ async function openPartForm(partId, container) {
       if (!form) return;
       await submitPartForm(form, partId, async (savedPart) => {
         closeModal();
-        await loadAndRender(container);
+        if (container) {
+          await loadAndRender(container);
+        } else {
+          if (window.location.hash === '#parts') {
+            const tableCont = document.querySelector('#parts-table-container');
+            if (tableCont) {
+              const cont = document.getElementById('page-content');
+              if (cont) await loadAndRender(cont);
+            }
+          } else {
+            window.location.hash = '#parts';
+          }
+        }
       });
     });
   }
 
-  // Enter key submit
+  // Attach category auto-suggestion
   const form = document.querySelector('#part-form');
   if (form) {
+    attachCategorySuggest(form);
     form.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
         e.preventDefault();
@@ -439,8 +580,6 @@ async function openPartDetail(partId) {
 
   document.querySelector('#detail-edit-btn')?.addEventListener('click', async () => {
     closeModal();
-    // Kita perlu akses container, workaround: navigasi ke parts dan buka edit
-    // Ini diselesaikan lebih baik di M4 dengan proper state management
     const container = document.getElementById('page-content');
     await openPartForm(partId, container);
   });
@@ -460,10 +599,35 @@ async function handleDelete(partId, container) {
 
   const res = await window.api.deletePart(partId);
   if (res.success) {
-    toast.success('Barang Dihapus', `${part?.description} berhasil dihapus`);
+    selectedPartIds.delete(partId);
+    toast.success('Barang Dihapus', `${part?.description || 'Barang'} berhasil dihapus`);
     await loadAndRender(container);
   } else {
     toast.error('Gagal Hapus', res.error.message);
+  }
+}
+
+async function handleBatchDelete(container) {
+  const count = selectedPartIds.size;
+  if (count === 0) return;
+
+  const confirmed = await confirmDialog(
+    `Hapus ${count} Barang Sekaligus?`,
+    `Anda akan menghapus ${count} barang yang dipilih.\nData dapat dipulihkan atau disimpan dalam arsip audit (soft delete).`,
+    { confirmLabel: `Ya, Hapus ${count} Barang`, danger: true }
+  );
+
+  if (!confirmed) return;
+
+  const ids = Array.from(selectedPartIds);
+  const res = await window.api.deletePartsBatch(ids);
+
+  if (res.success) {
+    selectedPartIds.clear();
+    toast.success('Hapus Massal Berhasil', `${res.data.deletedCount} barang berhasil dihapus`);
+    await loadAndRender(container);
+  } else {
+    toast.error('Gagal Hapus Massal', res.error.message);
   }
 }
 

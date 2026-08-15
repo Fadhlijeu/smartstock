@@ -331,6 +331,39 @@ function deletePart(id) {
 }
 
 /**
+ * Soft delete multiple parts dalam satu transaksi
+ * @param {string[]} ids
+ */
+function deletePartsBatch(ids) {
+  try {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return { success: false, error: { code: 'INVALID_INPUT', message: 'Daftar ID tidak boleh kosong' } };
+    }
+
+    const db = getDb();
+    const timestamp = now();
+    const stmt = db.prepare(
+      'UPDATE parts SET is_deleted = 1, deleted_at = ?, updated_at = ? WHERE id = ? AND is_deleted = 0'
+    );
+
+    const deleteTx = db.transaction((idList) => {
+      let count = 0;
+      for (const id of idList) {
+        const res = stmt.run(timestamp, timestamp, id);
+        count += res.changes;
+      }
+      return count;
+    });
+
+    const deletedCount = deleteTx(ids);
+    return { success: true, data: { deletedCount, totalRequested: ids.length } };
+  } catch (err) {
+    return { success: false, error: { code: 'DB_ERROR', message: err.message } };
+  }
+}
+
+
+/**
  * Ambil KPI stats
  */
 function getKpiStats() {
@@ -362,6 +395,144 @@ function getKpiStats() {
   }
 }
 
+/**
+ * Seed realistic warehouse demo data (8-12 diverse items across categories with sample transactions)
+ */
+function seedDemoData() {
+  try {
+    const db = getDb();
+    const demoItems = [
+      {
+        description: 'Baut Hex Head M10 x 30mm SS304',
+        category: 'Mechanical/Fastener',
+        initialQty: 250,
+        currentQty: 210,
+        minQty: 50,
+        unit: 'pcs',
+        mrInvoice: 'INV-2026-1001',
+        purchaseOrder: 'PO-2026-5001',
+        dateEntry: '2026-08-01',
+      },
+      {
+        description: 'Deep Groove Ball Bearing 6205-2RS SKF',
+        category: 'Mechanical/Bearing',
+        initialQty: 40,
+        currentQty: 6,
+        minQty: 10,
+        unit: 'pcs',
+        mrInvoice: 'INV-2026-1002',
+        purchaseOrder: 'PO-2026-5002',
+        dateEntry: '2026-08-03',
+      },
+      {
+        description: 'O-Ring NBR70 ID 25mm x 3.5mm Seal',
+        category: 'Mechanical/Seal',
+        initialQty: 100,
+        currentQty: 0,
+        minQty: 20,
+        unit: 'pcs',
+        mrInvoice: 'INV-2026-1003',
+        purchaseOrder: 'PO-2026-5003',
+        dateEntry: '2026-08-05',
+      },
+      {
+        description: 'Kabel NYYHY 3 x 2.5mm² Supreme 500V',
+        category: 'Electrical/Cable',
+        initialQty: 300,
+        currentQty: 185,
+        minQty: 50,
+        unit: 'meter',
+        mrInvoice: 'INV-2026-1004',
+        purchaseOrder: 'PO-2026-5004',
+        dateEntry: '2026-08-07',
+      },
+      {
+        description: 'Magnetic Contactor 3P 32A LC1D32 Schneider',
+        category: 'Electrical/Component',
+        initialQty: 15,
+        currentQty: 12,
+        minQty: 4,
+        unit: 'unit',
+        mrInvoice: 'INV-2026-1005',
+        purchaseOrder: 'PO-2026-5005',
+        dateEntry: '2026-08-09',
+      },
+      {
+        description: 'Pressure Gauge 0-10 Bar G 1/2 Bottom Wika',
+        category: 'Instrument/Pressure',
+        initialQty: 20,
+        currentQty: 4,
+        minQty: 5,
+        unit: 'unit',
+        mrInvoice: 'INV-2026-1006',
+        purchaseOrder: 'PO-2026-5006',
+        dateEntry: '2026-08-10',
+      },
+      {
+        description: 'Pelumas Shell Tellus S2 MX 68 Hydraulic Oil',
+        category: 'Consumable/Lubricant',
+        initialQty: 200,
+        currentQty: 160,
+        minQty: 40,
+        unit: 'liter',
+        mrInvoice: 'INV-2026-1007',
+        purchaseOrder: 'PO-2026-5007',
+        dateEntry: '2026-08-11',
+      },
+      {
+        description: 'Helm Proyek V-Gard Full Brim MSA Putih',
+        category: 'Safety',
+        initialQty: 50,
+        currentQty: 45,
+        minQty: 10,
+        unit: 'unit',
+        mrInvoice: 'INV-2026-1008',
+        purchaseOrder: 'PO-2026-5008',
+        dateEntry: '2026-08-12',
+      },
+      {
+        description: 'Kunci Pas Ring Set 8-24mm 14 Pcs Tekiro',
+        category: 'Tool',
+        initialQty: 8,
+        currentQty: 8,
+        minQty: 2,
+        unit: 'set',
+        mrInvoice: 'INV-2026-1009',
+        purchaseOrder: 'PO-2026-5009',
+        dateEntry: '2026-08-13',
+      },
+      {
+        description: 'Barang Khusus Custom Import Perlu Validasi',
+        category: 'Uncategorized',
+        initialQty: 30,
+        currentQty: 30,
+        minQty: 5,
+        needsReview: true,
+        unit: 'pcs',
+        mrInvoice: 'INV-2026-1010',
+        purchaseOrder: 'PO-2026-5010',
+        dateEntry: '2026-08-14',
+      }
+    ];
+
+    let createdCount = 0;
+    for (const item of demoItems) {
+      const created = createPart(item);
+      if (created.success) {
+        createdCount++;
+        // If currentQty differs from initialQty, update it
+        if (item.currentQty !== item.initialQty) {
+          updatePart(created.data.id, { currentQty: item.currentQty });
+        }
+      }
+    }
+
+    return { success: true, data: { createdCount } };
+  } catch (err) {
+    return { success: false, error: { code: 'SEED_ERROR', message: err.message } };
+  }
+}
+
 module.exports = {
   createPart,
   getPartById,
@@ -370,5 +541,8 @@ module.exports = {
   getParts,
   updatePart,
   deletePart,
+  deletePartsBatch,
   getKpiStats,
+  seedDemoData,
 };
+

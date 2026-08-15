@@ -18,7 +18,8 @@ function createMainWindow(preloadPath) {
     minHeight: 600,
     title: 'SAP StockMon',
     backgroundColor: '#0f1117', // Sama dengan --color-paper-base agar tidak flash putih
-    show: false, // Show setelah ready-to-show event
+    center: true,               // Selalu muncul di tengah layar
+    show: false,                // Show setelah ready-to-show event
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,       // WAJIB untuk keamanan
@@ -32,7 +33,18 @@ function createMainWindow(preloadPath) {
   // Show window setelah render selesai (no white flash)
   win.once('ready-to-show', () => {
     win.show();
+    win.focus();
   });
+
+  // Fallback: paksa show setelah 5 detik kalau ready-to-show tidak trigger
+  const showFallback = setTimeout(() => {
+    if (!win.isVisible()) {
+      win.show();
+      win.focus();
+    }
+  }, 5000);
+
+  win.once('show', () => clearTimeout(showFallback));
 
   return win;
 }
