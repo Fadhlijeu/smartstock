@@ -9,7 +9,6 @@
  */
 
 import { toast } from '../components/toast.js';
-import { openQRModal } from '../components/qr-modal.js';
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let scanHistory = [];      // Array of recent scan results

@@ -7,6 +7,7 @@ import { state } from '../state.js';
 import { toast } from '../components/toast.js';
 
 let cleanupFns = [];
+let _container = null; // referensi container aktif untuk stock update
 
 export async function mount(container) {
   // Load KPI data
@@ -29,14 +30,17 @@ export async function mount(container) {
   }
 
   // Render
+  _container = container;
   container.innerHTML = renderDashboard(kpis, parts);
 
   // Bind events
   bindEvents(container);
 
-  // Subscribe to stock updates from scanner (M3)
+  // Subscribe to stock updates dari scanner (IPC event)
   const unsubStockUpdate = window.api.onStockUpdated((data) => {
     handleStockUpdate(data, container);
+    // Refresh KPI strip setelah stock update
+    refreshKpis(container);
   });
 
   cleanupFns.push(unsubStockUpdate);
@@ -48,6 +52,7 @@ export async function mount(container) {
 function unmount() {
   cleanupFns.forEach((fn) => typeof fn === 'function' && fn());
   cleanupFns = [];
+  _container = null;
 }
 
 function renderDashboard(kpis, parts) {
@@ -192,32 +197,33 @@ function renderEmptyState() {
 }
 
 function bindEvents(container) {
-  // Scan input
+  // Scan input — terhubung ke handleScanInput yang sesungguhnya
   const scanInput = container.querySelector('#scan-input');
   const scanBar = container.querySelector('#scan-bar');
   if (scanInput) {
     scanInput.addEventListener('focus', () => scanBar.classList.add('scan-bar--active'));
     scanInput.addEventListener('blur', () => scanBar.classList.remove('scan-bar--active'));
-    scanInput.addEventListener('keydown', (e) => {
+    scanInput.addEventListener('keydown', async (e) => {
       if (e.key === 'Enter' && scanInput.value.trim()) {
-        handleScanInput(scanInput.value.trim());
+        const value = scanInput.value.trim();
         scanInput.value = '';
+        await handleScanInput(value, container);
       }
     });
   }
 
-  // Direction toggle
+  // Direction toggle — pakai class 'active' yang konsisten dengan CSS
   const btnIn = container.querySelector('#btn-dir-in');
   const btnOut = container.querySelector('#btn-dir-out');
   if (btnIn && btnOut) {
     btnIn.addEventListener('click', () => {
-      btnIn.classList.add('active-in');
-      btnOut.classList.remove('active-out');
+      btnIn.classList.add('active');
+      btnOut.classList.remove('active');
       state.update('scanDirection', 'IN');
     });
     btnOut.addEventListener('click', () => {
-      btnOut.classList.add('active-out');
-      btnIn.classList.remove('active-in');
+      btnOut.classList.add('active');
+      btnIn.classList.remove('active');
       state.update('scanDirection', 'OUT');
     });
   }
@@ -286,10 +292,80 @@ function bindEvents(container) {
   }
 }
 
-function handleScanInput(value) {
-  // M3 akan menghandle ini dengan scan validator
-  // Untuk sekarang: toast info
-  toast.info('Scanner', `Input: ${value} — Scanner akan aktif di M3`);
+/**
+ * Proses input dari scan bar di dashboard.
+ * Menggunakan arah transaksi dari state (IN/OUT).
+ */
+async function handleScanInput(value, container) {
+  const direction = state.get('scanDirection') || 'IN';
+
+  // Coba parse JSON payload (dari QR scanner)
+  let qrId = null;
+  let serialNumber = null;
+
+  if (value.startsWith('{')) {
+    try {
+      const payload = JSON.parse(value);
+      qrId = payload.qrId || payload.id;
+      serialNumber = payload.sn;
+    } catch (_) { /* bukan JSON valid */ }
+  }
+
+  if (!qrId) {
+    if (/^QR-\d{4}-\d{4,}$/i.test(value)) {
+      qrId = value.toUpperCase();
+    } else {
+      serialNumber = value;
+    }
+  }
+
+  // Lookup part
+  let partRes;
+  try {
+    if (qrId) {
+      partRes = await window.api.getPartByQrId(qrId);
+    } else {
+      partRes = await window.api.getPartBySerialNumber(serialNumber);
+    }
+  } catch (err) {
+    toast.error('Scan Error', err.message);
+    return;
+  }
+
+  if (!partRes || !partRes.success) {
+    toast.error('Tidak Ditemukan', `Barang "${value}" tidak ada di database`);
+    return;
+  }
+
+  const part = partRes.data;
+  const qty = 1;
+
+  // Validasi stok untuk OUT
+  if (direction === 'OUT' && part.currentQty < qty) {
+    toast.error('Stok Tidak Cukup', `Sisa stok: ${part.currentQty} ${part.unit}`);
+    return;
+  }
+
+  // Buat transaksi
+  const txRes = await window.api.createTransaction({
+    partId: part.id,
+    qrId: part.qrId,
+    direction,
+    quantity: qty,
+    scanMethod: 'manual',
+  });
+
+  if (!txRes.success) {
+    toast.error('Transaksi Gagal', txRes.error.message);
+    return;
+  }
+
+  const newQty = direction === 'OUT' ? part.currentQty - qty : part.currentQty + qty;
+  const dirIcon = direction === 'OUT' ? '−' : '+';
+  toast.success(
+    `${direction === 'OUT' ? 'Keluar' : 'Masuk'}: ${part.description}`,
+    `${dirIcon}${qty} ${part.unit} → sisa ${newQty}`
+  );
 }
 
 async function filterAndRefreshGrid(container, search) {
@@ -304,6 +380,36 @@ async function filterAndRefreshGrid(container, search) {
   } catch (err) {
     console.error('[Dashboard] Filter error:', err);
   }
+}
+
+/**
+ * Refresh hanya KPI strip (angka ringkasan) tanpa reload seluruh halaman.
+ */
+async function refreshKpis(container) {
+  try {
+    const res = await window.api.getKpiStats();
+    if (!res.success) return;
+    const kpis = res.data;
+    const strip = container.querySelector('#kpi-strip');
+    if (strip) {
+      strip.innerHTML = `
+        ${renderKpiWidget('inventory_2', kpis.totalSku.toLocaleString('id'), 'Total SKU', '')}
+        ${renderKpiWidget('warehouse', kpis.totalItems.toLocaleString('id'), 'Total Items', '')}
+        ${renderKpiWidget('login', '+' + kpis.inToday.toLocaleString('id'), 'IN Hari Ini', 'ok')}
+        ${renderKpiWidget('logout', kpis.outToday.toLocaleString('id'), 'OUT Hari Ini', '')}
+        ${kpis.outCount > 0 ? renderKpiWidget('cancel', kpis.outCount, 'Stok Habis', 'danger') : ''}
+        ${kpis.lowCount > 0 ? renderKpiWidget('warning', kpis.lowCount, 'Stok Rendah', 'warning') : ''}
+        ${kpis.reviewCount > 0 ? renderKpiWidget('rate_review', kpis.reviewCount, 'Perlu Review', 'warning') : ''}
+      `;
+    }
+    // Update sidebar badge
+    const badge = document.querySelector('#sidebar-alert-badge');
+    const alertCount = kpis.outCount + kpis.lowCount;
+    if (badge) {
+      badge.textContent = alertCount;
+      badge.style.display = alertCount > 0 ? '' : 'none';
+    }
+  } catch (_) { /* gagal refresh KPI, skip */ }
 }
 
 function handleStockUpdate(data, container) {
@@ -322,29 +428,18 @@ function handleStockUpdate(data, container) {
 }
 
 async function openPartDetail(partId) {
-  const { openModal } = await import('../components/modal.js');
-  openModal({
-    title: 'Detail Barang',
-    body: `
-      <div style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4)">
-        <div class="spinner spinner--lg"></div>
-        <span style="color:var(--color-ink-secondary)">Memuat data...</span>
-      </div>
-    `,
-    size: 'wide',
-  });
+  const { openModal, closeModal } = await import('../components/modal.js');
 
+  // Load data dulu, baru buka modal sekali dengan data lengkap
   try {
     const res = await window.api.getPartById(partId);
     if (!res.success) {
       toast.error('Error', res.error.message);
-      const { closeModal } = await import('../components/modal.js');
-      closeModal();
       return;
     }
 
     const part = res.data;
-    const { getEl } = openModal({
+    openModal({
       title: part.description,
       body: renderPartDetailBody(part),
       size: 'wide',
@@ -353,7 +448,7 @@ async function openPartDetail(partId) {
           label: 'Tutup',
           type: 'ghost',
           id: 'modal-close-action',
-          onClick: async () => { const { closeModal } = await import('../components/modal.js'); closeModal(); },
+          onClick: () => closeModal(),
         },
       ],
     });

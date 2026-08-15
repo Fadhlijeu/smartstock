@@ -15,8 +15,6 @@ export async function mount(container) {
 }
 
 function renderShell() {
-  const today = new Date().toISOString().slice(0, 10);
-
   return `
     <div class="section-header">
       <div>
@@ -45,8 +43,8 @@ function renderShell() {
         <button class="toggle__option" data-direction="IN">IN</button>
         <button class="toggle__option" data-direction="OUT">OUT</button>
       </div>
-      <input type="date" class="form-input" id="history-date-from" value="${today}" style="width:auto" title="Dari tanggal">
-      <input type="date" class="form-input" id="history-date-to" value="${today}" style="width:auto" title="Sampai tanggal">
+      <input type="date" class="form-input" id="history-date-from" style="width:auto" title="Dari tanggal" placeholder="Dari tanggal">
+      <input type="date" class="form-input" id="history-date-to" style="width:auto" title="Sampai tanggal" placeholder="Sampai tanggal">
       <button class="btn btn--ghost btn--sm" id="btn-history-clear">
         <span class="icon icon--sm">filter_alt_off</span> Reset
       </button>
@@ -186,10 +184,10 @@ function renderRow(tx) {
 }
 
 function bindEvents(container) {
-  const from = container.querySelector('#history-date-from');
-  const to = container.querySelector('#history-date-to');
-  filters.dateFrom = from?.value || '';
-  filters.dateTo = to?.value || '';
+  // Default: dateFrom & dateTo kosong = tampilkan semua data
+  // User bisa set filter manual via date input
+  filters.dateFrom = '';
+  filters.dateTo = '';
 
   container.querySelector('#btn-history-refresh')?.addEventListener('click', () => loadTransactions(container));
   container.querySelector('#btn-history-export')?.addEventListener('click', () => exportHistory());

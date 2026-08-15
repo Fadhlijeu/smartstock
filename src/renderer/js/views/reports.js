@@ -111,7 +111,7 @@ function renderReportCard(title, description, icon, format, btnId, variant) {
         </div>
       </div>
       <p style="font-size:var(--text-sm);color:var(--color-ink-secondary);line-height:1.6;flex:1;margin:0">${escHtml(description)}</p>
-      <button class="btn ${btnType} btn--sm" id="${btnId}" ${disabled}>
+      <button class="btn ${btnType} btn--sm" id="${btnId}" ${variant === 'ghost' ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>
         <span class="icon icon--sm">${variant === 'ghost' ? 'pending' : 'download'}</span>
         ${variant === 'ghost' ? 'Belum tersedia' : 'Export'}
       </button>

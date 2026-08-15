@@ -432,7 +432,7 @@ async function openPartDetail(partId) {
     `,
     size: 'wide',
     actions: [
-      { label: 'Edit', type: 'secondary', id: 'detail-edit-btn', onClick: () => { closeModal(); /* Edit akan dibuka oleh container event */ } },
+      { label: 'Edit', type: 'secondary', id: 'detail-edit-btn' },
       { label: 'Tutup', type: 'ghost', id: 'detail-close-btn', onClick: () => closeModal() },
     ],
   });
